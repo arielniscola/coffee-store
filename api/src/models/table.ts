@@ -1,4 +1,3 @@
-import { Table } from "lucide-react";
 import { createModel, createSchema } from ".";
 
 export interface ITable {
@@ -8,6 +7,7 @@ export interface ITable {
   description?: string;
   unitBusiness: string;
   companyCode: string;
+  active?: boolean;
 }
 
 export const TableSchema = createSchema<ITable>({
@@ -30,6 +30,11 @@ export const TableSchema = createSchema<ITable>({
   companyCode: {
     type: String,
     required: true,
+  },
+  active: {
+    type: Boolean,
+    required: false,
+    default: true,
   },
 });
 

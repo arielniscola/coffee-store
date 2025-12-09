@@ -1,391 +1,315 @@
-import { ChangeEvent, useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import {
-  createShift,
+  Calendar,
+  Clock,
+  Users,
+  Mail,
+  Phone,
+  Trash2,
+  Check,
+  X,
+  CalendarIcon,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
+import {
   deleteShift,
   getShifts,
   updateShift,
 } from "../../../services/shiftService";
-import moment from "moment";
 import { IShift } from "../../../interfaces/shift";
-import { getUnitBusiness } from "../../../services/unitBusinessService";
-import { IUnitBusiness } from "../../../interfaces/unitBusiness";
-import { Pencil, Search, Store, Trash2 } from "lucide-react";
+import { addDays, format } from "date-fns";
 import toast, { Toaster } from "react-hot-toast";
+import ModalDelete from "../../../components/DeleteModal";
 
 const notify = (msg: string) => toast.success(msg);
 const notifyError = (msg: string) => toast.error(msg);
 
-const getColorStatus = (status: string) => {
-  switch (status) {
-    case "paid":
-      return "#10B981	";
-    case "confirmed":
-      return "#3B82F6	";
-    case "debt":
-      return "#EF4444";
-    case "cancelled":
-      return "#EF4444";
-    default:
-      return "#FBBF24	";
-  }
-};
-const getStatusText = (status: string) => {
-  switch (status) {
-    case "available":
-      return "Disponible";
-    case "scheduled":
-      return "Reservado";
-    case "completed":
-      return "Completado";
-    case "cancelled":
-      return "Cancelado";
-    default:
-      return status;
-  }
-};
-
-export const ListView = () => {
-  const [selectedDate, setSelectedDate] = useState(
-    new Date().toISOString().split("T")[0]
-  );
-  const [showModal, setShowModal] = useState(false);
-  const [shifts, setShifts] = useState<IShift[]>([]);
-  const [unitBusiness, setUnitBusiness] = useState<IUnitBusiness[]>([]);
-  const [filter, setFilter] = useState<string>("");
-  const [filterData, setFilterData] = useState<IShift[]>([]);
-  const [research, setResearch] = useState<boolean>(true);
-  const [formData, setFormData] = useState<IUnitBusiness>({
-    _id: "",
-    code: "",
-    name: "",
-    description: "",
-    active: true,
-  });
+export function ReservationList() {
+  const [reservations, setReservations] = useState<IShift[]>([]);
+  const [loading, setLoading] = useState(true);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-
+  const [deleteId, setDeleteId] = useState<string>("");
+  const [filter, setFilter] = useState<
+    "all" | "toConfirm" | "confirmed" | "cancelled" | "completed"
+  >("all");
+  const [currentDate, setCurrentDate] = useState(new Date());
   useEffect(() => {
-    const fetchUnitBusiness = async () => {
-      try {
-        const unitBusinessData = (await getUnitBusiness(
-          true
-        )) as IUnitBusiness[];
-        setUnitBusiness(unitBusinessData);
-      } catch (error) {
-        console.error("Error fetching unit business:", error);
-      }
-    };
-    fetchUnitBusiness();
-  }, []);
-  useEffect(() => {
-    const fetchShifts = async () => {
-      try {
-        const clientsData = (await getShifts(
-          selectedDate
-            ? selectedDate
-            : moment(selectedDate).format("YYYY-MM-DD")
-        )) as IShift[];
-        setShifts(clientsData);
-      } catch (error) {
-        console.error("Error fetching reservations:", error);
-      }
-    };
-    fetchShifts();
-  }, [selectedDate]);
+    loadReservations();
+  }, [currentDate]);
 
-  const filterHandler = (e: ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setFilter(value);
-    const newUNArray = shifts.filter(
-      (met) =>
-        met.status?.toLocaleLowerCase().includes(value) ||
-        met.client?.toLocaleLowerCase().includes(value)
-    );
-    setFilterData(newUNArray);
-  };
-
-  const handleAddUnitBusiness = async () => {
+  async function loadReservations() {
     try {
-      let res;
-      !formData._id
-        ? (res = await createShift(formData))
-        : (res = await updateShift(formData));
-
-      if (!res.ack) {
-        notify(res.message ? res.message : "ok");
-      } else {
-        notifyError(res.message ? res.message : "Error");
-      }
+      setLoading(true);
+      const data = (await getShifts(
+        currentDate.toISOString(),
+        "LOC1"
+      )) as IShift[];
+      setReservations(data);
     } catch (error) {
-      notifyError(error ? error.toString() : "Error");
+      console.error("Error loading reservations:", error);
     } finally {
-      setShowModal(false);
-      setResearch(!research);
+      setLoading(false);
     }
+  }
+  const handlePreviousDay = () => {
+    setCurrentDate(addDays(currentDate, -1));
   };
 
-  const deleteHandler = async (deleteId: string) => {
+  const handleNextDay = () => {
+    setCurrentDate(addDays(currentDate, 1));
+  };
+
+  const deleteReservation = async () => {
     try {
       const res = await deleteShift(deleteId);
       if (res.ack) {
-        notifyError(res.message ? res.message : "error");
+        notifyError(res.message || "Error al eliminar reserva");
+        console.error("Error delete reservation:", res.message);
+        return;
       } else {
-        notify(res.message ? res.message : "ok");
+        notify("Reserva eliminada correctamente");
       }
-      setDeleteModalOpen(false);
-      setResearch(!research);
     } catch (error) {
-      notifyError(error ? error.toString() : "error");
+      console.error("Error deleting reservation:", error);
     }
   };
 
-  const handleUpdate = (id?: string) => {
-    const unit = unitBusiness.find((u) => u._id === id);
-    if (unit) {
-      setFormData(unit);
-      //setShowModal(true);
+  async function updateStatus(shift: Partial<IShift>, status: string) {
+    try {
+      shift.status = status;
+      const res = await updateShift(shift);
+      if (res.ack) {
+        notifyError(res.message || "Error al actualizar reserva");
+        console.error("Error updating status:", res.message);
+        return;
+      } else {
+        notify("Reserva actualizada correctamente");
+      }
+      loadReservations();
+    } catch (error) {
+      console.error("Error updating status:", error);
+    }
+  }
+
+  const filteredReservations =
+    filter === "all"
+      ? reservations
+      : reservations.filter((r) => r.status === filter);
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "toConfirm":
+        return "bg-yellow-100 text-yellow-800 border-yellow-300";
+      case "confirmed":
+        return "bg-blue-100 text-blue-800 border-blue-300";
+      case "paid":
+        return "bg-green-100 text-green-800 border-green-300";
+      case "cancelled":
+        return "bg-red-100 text-red-800 border-red-300";
+      case "debt":
+        return "bg-orange-100 text-orange-800 border-orange-300";
+      default:
+        return "bg-gray-100 text-gray-800 border-gray-300";
     }
   };
+
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case "toConfirm":
+        return "Pendiente";
+      case "paid":
+        return "Pagado";
+      case "confirmed":
+        return "Confirmada";
+      case "cancelled":
+        return "Cancelada";
+      case "completed":
+        return "Completada";
+      case "debt":
+        return "Impaga";
+      default:
+        return status;
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-gray-100 p-8">
-      <div className="mx-auto">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Reservas</h1>
-          <button className="bg-indigo-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-indigo-700 transition-colors">
-            <Store className="h-5 w-5" />
-            Nuevo
-          </button>
+    <div className="space-y-4 p-6 bg-gray-100 min-h-screen">
+      <div className="flex items-right  justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <CalendarIcon className="w-5 h-5 text-blue-600" />
+          <span className="text-lg font-medium text-gray-900">
+            {currentDate.toLocaleDateString("es-ES", {
+              month: "long",
+              year: "numeric",
+            })}
+          </span>
         </div>
-
-        <div className="mb-4 flex gap-4">
-          <div className="relative flex-1">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search className="h-5 w-5 text-gray-400" />
-            </div>
+        <div className="flex items-center">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handlePreviousDay}
+              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
             <input
-              type="text"
-              placeholder="Filtrar unidad de negocio..."
-              value={filter}
-              onChange={(e) => filterHandler(e)}
-              className="pl-10 w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400"
+              type="date"
+              value={format(new Date(currentDate), "yyyy-MM-dd")}
+              onChange={(e) => setCurrentDate(new Date(e.target.value))}
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
+            <button
+              onClick={handleNextDay}
+              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
           </div>
         </div>
+      </div>
+      <div className="flex gap-2 flex-wrap">
+        {["all", "toConfirm", "confirmed", "cancelled", "completed"].map(
+          (status) => (
+            <button
+              key={status}
+              onClick={() => setFilter(status as any)}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                filter === status
+                  ? "bg-blue-600 text-white"
+                  : "bg-white text-gray-700 hover:bg-gray-100 border border-gray-300"
+              }`}
+            >
+              {status === "all" ? "Todas" : getStatusText(status)}
+            </button>
+          )
+        )}
+      </div>
 
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Codigo
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Nombre
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Estado
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Descripcion
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Acciones
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {filter.length === 0
-                ? shifts.map((reserv) => (
-                    <tr key={reserv._id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">
-                          {reserv.date}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-500">
-                          {reserv.client}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span
-                          className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-${
-                            reserv.status ? "green" : "red"
-                          }-100 text-${reserv.status ? "green" : "red"}-800`}
-                        >
-                          {reserv.status === "confirmado"
-                            ? "Activo"
-                            : "Inactivo"}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-500">
-                          {reserv.description}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <div className="flex space-x-3">
-                          <button
-                            onClick={() => handleUpdate(reserv._id)}
-                            className="text-indigo-600 hover:text-indigo-900 transition-colors"
-                          >
-                            <Pencil className="h-5 w-5" />
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setDeleteModalOpen(true);
-                            }}
-                            className="text-red-600 hover:text-red-900 transition-colors"
-                          >
-                            <Trash2 className="h-5 w-5" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                : filterData.map((reserv) => (
-                    <tr key={reserv._id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">
-                          {reserv.date}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-500">
-                          {reserv.client}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span
-                          className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-${
-                            reserv.status ? "green" : "red"
-                          }-100 text-${reserv.status ? "green" : "red"}-800`}
-                        >
-                          {reserv.status === "confirmado"
-                            ? "Activo"
-                            : "Inactivo"}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-500">
-                          {reserv.description}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <div className="flex space-x-3">
-                          <button
-                            onClick={() => handleUpdate(reserv._id)}
-                            className="text-indigo-600 hover:text-indigo-900 transition-colors"
-                          >
-                            <Pencil className="h-5 w-5" />
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setDeleteModalOpen(true);
-                            }}
-                            className="text-red-600 hover:text-red-900 transition-colors"
-                          >
-                            <Trash2 className="h-5 w-5" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-            </tbody>
-          </table>
-        </div>
-
-        {showModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-            <div className="bg-white rounded-lg p-8 max-w-md w-full">
-              <h2 className="text-2xl font-bold mb-4">Agregar Turno</h2>
-              <div className="space-y-4">
+      <div className="grid gap-4">
+        {filteredReservations.length === 0 ? (
+          <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
+            <p className="text-gray-500">No hay reservas para mostrar</p>
+          </div>
+        ) : (
+          filteredReservations.map((reservation) => (
+            <div
+              key={reservation._id}
+              className="bg-white rounded-lg border border-gray-200 p-3 hover:shadow-md transition-shadow"
+            >
+              <div className="flex justify-between items-start mb-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Nombre
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.name}
-                    onChange={(e) =>
-                      setFormData({ ...formData, name: e.target.value })
-                    }
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2 border"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Código
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.code}
-                    onChange={(e) =>
-                      setFormData({ ...formData, code: e.target.value })
-                    }
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2 border"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Descripcion
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.description}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        description: e.target.value,
-                      })
-                    }
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2 border"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Estado
-                  </label>
-                  <select
-                    value={formData.active.valueOf().toString()}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        active: e.target.value === "true",
-                      })
-                    }
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2 border"
+                  <h3 className="text-xl font-semibold text-gray-900">
+                    {reservation.client}
+                  </h3>
+                  <span
+                    className={`inline-block mt-2 px-3 py-1 rounded-full text-sm font-medium border ${getStatusColor(
+                      reservation.status
+                    )}`}
                   >
-                    <option value={"true"}>Activo</option>
-                    <option value={"false"}>Inactivo</option>
-                  </select>
+                    {getStatusText(reservation.status)}
+                  </span>
                 </div>
-                <div className="flex justify-end space-x-3">
+                <div className="flex gap-2">
+                  {reservation.status === "toConfirm" && (
+                    <>
+                      <button
+                        onClick={() => updateStatus(reservation, "confirmed")}
+                        className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                        title="Confirmar"
+                      >
+                        <Check className="w-5 h-5" />
+                      </button>
+                      <button
+                        onClick={() => updateStatus(reservation, "cancelled")}
+                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Cancelar"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </>
+                  )}
                   <button
-                    type="button"
-                    onClick={() => setShowModal(false)}
-                    className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setDeleteModalOpen(true);
+                      setDeleteId(reservation._id || "");
+                    }}
+                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    title="Eliminar"
                   >
-                    Cancelar
-                  </button>
-                  <button
-                    type="button"
-                    className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
-                    onClick={handleAddUnitBusiness}
-                  >
-                    Guardar
+                    <Trash2 className="w-5 h-5" />
                   </button>
                 </div>
               </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-gray-700">
+                    <Calendar className="w-4 h-4" />
+                    <span className="text-sm">
+                      {new Date(reservation.date).getUTCDate()}-
+                      {new Date(reservation.date).getUTCMonth() + 1}-
+                      {new Date(reservation.date).getUTCFullYear()}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 text-gray-700">
+                    <Clock className="w-4 h-4" />
+                    <span className="text-sm">
+                      {reservation.timeStart || "N/A"}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 text-gray-700">
+                    <Users className="w-4 h-4" />
+                    <span className="text-sm">2 personas</span>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-gray-700">
+                    <Mail className="w-4 h-4" />
+                    <span className="text-sm">{reservation.email}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-gray-700">
+                    <Phone className="w-4 h-4" />
+                    <span className="text-sm">{reservation.phoneNumber}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-gray-700">
+                    <span className="text-sm font-medium">
+                      Mesa #{reservation.tableNumber || "N/A"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {reservation.description && (
+                <div className="mt-4 pt-4 border-t border-gray-200">
+                  <p className="text-sm text-gray-600">
+                    <span className="font-medium">Notas:</span>{" "}
+                    {reservation.description}
+                  </p>
+                </div>
+              )}
             </div>
-          </div>
+          ))
         )}
       </div>
+
       <Toaster position="bottom-right" />
+      <ModalDelete
+        id="delete-modal-shift"
+        modalOpen={deleteModalOpen}
+        setModalOpen={setDeleteModalOpen}
+        deleteFn={deleteReservation}
+      />
     </div>
   );
-};
+}

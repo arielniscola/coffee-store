@@ -3,6 +3,7 @@ import { NavLink, useLocation } from "react-router-dom";
 
 import React from "react";
 import SidebarLinkGroup from "./SiderbarLinkGroup";
+import { ChartNoAxesCombined, NotebookPen, Settings } from "lucide-react";
 interface SidebarProps {
   sidebarOpen: boolean;
   setSidebarOpen: (open: boolean) => void;
@@ -178,24 +179,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   }`}
                 >
                   <div className="flex items-center">
-                    <svg className="shrink-0 h-6 w-6" viewBox="0 0 24 24">
-                      <path
-                        className={`fill-current ${
-                          pathname.includes("shift")
-                            ? "text-indigo-500"
-                            : "text-slate-600"
-                        }`}
-                        d="M1 3h22v20H1z"
-                      />
-                      <path
-                        className={`fill-current ${
-                          pathname.includes("shift")
-                            ? "text-indigo-300"
-                            : "text-slate-400"
-                        }`}
-                        d="M21 3h2v4H1V3h2V1h4v2h10V1h4v2Z"
-                      />
-                    </svg>
+                    <NotebookPen
+                      className={`${
+                        pathname.includes("shift")
+                          ? "text-indigo-300"
+                          : "text-slate-400"
+                      }`}
+                    />
                     <span className="text-sm font-medium ml-3 lg:opacity-0 lg:sidebar-expanded:opacity-100 2xl:opacity-100 duration-200">
                       Turnos
                     </span>
@@ -222,43 +212,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center">
-                            <svg
-                              className="shrink-0 h-6 w-6"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                className={`fill-current ${
-                                  pathname.includes("settings")
-                                    ? "text-indigo-500"
-                                    : "text-slate-600"
-                                }`}
-                                d="M19.714 14.7l-7.007 7.007-1.414-1.414 7.007-7.007c-.195-.4-.298-.84-.3-1.286a3 3 0 113 3 2.969 2.969 0 01-1.286-.3z"
-                              />
-                              <path
-                                className={`fill-current ${
-                                  pathname.includes("settings")
-                                    ? "text-indigo-300"
-                                    : "text-slate-400"
-                                }`}
-                                d="M10.714 18.3c.4-.195.84-.298 1.286-.3a3 3 0 11-3 3c.002-.446.105-.885.3-1.286l-6.007-6.007 1.414-1.414 6.007 6.007z"
-                              />
-                              <path
-                                className={`fill-current ${
-                                  pathname.includes("settings")
-                                    ? "text-indigo-500"
-                                    : "text-slate-600"
-                                }`}
-                                d="M5.7 10.714c.195.4.298.84.3 1.286a3 3 0 11-3-3c.446.002.885.105 1.286.3l7.007-7.007 1.414 1.414L5.7 10.714z"
-                              />
-                              <path
-                                className={`fill-current ${
-                                  pathname.includes("settings")
-                                    ? "text-indigo-300"
-                                    : "text-slate-400"
-                                }`}
-                                d="M19.707 9.292a3.012 3.012 0 00-1.415 1.415L13.286 5.7c-.4.195-.84.298-1.286.3a3 3 0 113-3 2.969 2.969 0 01-.3 1.286l5.007 5.006z"
-                              />
-                            </svg>
+                            <Settings
+                              className={`${
+                                pathname.includes("settings")
+                                  ? "text-indigo-500"
+                                  : "text-slate-400"
+                              }`}
+                            />
                             <span className="text-sm font-medium ml-3 lg:opacity-0 lg:sidebar-expanded:opacity-100 2xl:opacity-100 duration-200">
                               Configuración
                             </span>
@@ -312,6 +272,38 @@ export const Sidebar: React.FC<SidebarProps> = ({
                               </span>
                             </NavLink>
                           </li>
+                          <li className="mb-1 last:mb-0">
+                            <NavLink
+                              end
+                              to="/settings/tables"
+                              className={({ isActive }) =>
+                                "block transition duration-150 truncate " +
+                                (isActive
+                                  ? "text-indigo-500"
+                                  : "text-slate-400 hover:text-slate-200")
+                              }
+                            >
+                              <span className="text-sm font-medium lg:opacity-0 lg:sidebar-expanded:opacity-100 2xl:opacity-100 duration-200">
+                                Mesas
+                              </span>
+                            </NavLink>
+                          </li>
+                          <li className="mb-1 last:mb-0">
+                            <NavLink
+                              end
+                              to="/settings/companies"
+                              className={({ isActive }) =>
+                                "block transition duration-150 truncate " +
+                                (isActive
+                                  ? "text-indigo-500"
+                                  : "text-slate-400 hover:text-slate-200")
+                              }
+                            >
+                              <span className="text-sm font-medium lg:opacity-0 lg:sidebar-expanded:opacity-100 2xl:opacity-100 duration-200">
+                                Empresa
+                              </span>
+                            </NavLink>
+                          </li>
                         </ul>
                       </div>
                     </React.Fragment>
@@ -342,51 +334,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center">
-                            <svg
-                              className="shrink-0 h-6 w-6"
-                              viewBox="0 0 24 24"
-                            >
-                              <circle
-                                className={`fill-current ${
-                                  pathname.includes("statistics")
-                                    ? "text-indigo-300"
-                                    : "text-slate-400"
-                                }`}
-                                cx="18.5"
-                                cy="5.5"
-                                r="4.5"
-                              />
-                              <circle
-                                className={`fill-current ${
-                                  pathname.includes("statistics")
-                                    ? "text-indigo-500"
-                                    : "text-slate-600"
-                                }`}
-                                cx="5.5"
-                                cy="5.5"
-                                r="4.5"
-                              />
-                              <circle
-                                className={`fill-current ${
-                                  pathname.includes("statistics")
-                                    ? "text-indigo-500"
-                                    : "text-slate-600"
-                                }`}
-                                cx="18.5"
-                                cy="18.5"
-                                r="4.5"
-                              />
-                              <circle
-                                className={`fill-current ${
-                                  pathname.includes("statistics")
-                                    ? "text-indigo-300"
-                                    : "text-slate-400"
-                                }`}
-                                cx="5.5"
-                                cy="18.5"
-                                r="4.5"
-                              />
-                            </svg>
+                            <ChartNoAxesCombined
+                              className={`${
+                                pathname.includes("statistics")
+                                  ? "text-indigo-300"
+                                  : "text-slate-400"
+                              }`}
+                            />
                             <span className="text-sm font-medium ml-3 lg:opacity-0 lg:sidebar-expanded:opacity-100 2xl:opacity-100 duration-200">
                               Estadisticas
                             </span>

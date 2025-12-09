@@ -52,7 +52,7 @@ export class CompanyService extends Service<ICompany> {
     const log = new Log("CompanyCoreService.insertOne");
     try {
       let company;
-
+      console.log("Creating company:", data);
       // Insertamos la compania con el metodo de la clase padre
       company = await super.insertOne(data, {
         ...options,

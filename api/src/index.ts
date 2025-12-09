@@ -142,6 +142,8 @@ export class Coffeshop {
       });
       /** Marcamos al Servidor como inicializado */
       this._initialized = true;
+      /** Inicializar configuraciones */
+
       log.info(`Servidor inicializado: ${this._initialized}`);
     } catch (err) {
       log.error(err, `Error al iniciar servidor: ${err.message}`);

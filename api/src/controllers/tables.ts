@@ -29,6 +29,12 @@ export class TableController {
       const table: ITable = req.body;
       table.companyCode = companyCode;
       delete table._id;
+      const exist = await tableService.findOne({
+        companyCode: companyCode,
+        unitBusiness: table.unitBusiness,
+        number: table.number,
+      });
+      if (exist) throw new Error("Ya existe mesa con numero asignada");
       const created = await tableService.insertOne(table);
       if (!created) throw new Error("No se creo el la mesa");
       return res

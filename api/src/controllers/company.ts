@@ -10,12 +10,12 @@ export class CompanyController {
       try {
         const companyCode = res.locals.companyCode;
         const filter = {
-          ...{ companyCode: companyCode },
+          ...{ code: companyCode },
           ...(req.query.code ? { code: req.query.code } : {}),
           ...(req.query.code ? { active: true } : {}),
         };
         const data = await companyService.find(filter);
-        return res.status(200).json({ ack: 0, data: data });
+        return res.status(200).json({ ack: 0, data: data[0] });
       } catch (e) {
         logger.error(e);
         return res.status(400).json({ ack: 1, message: e.message });
@@ -25,12 +25,13 @@ export class CompanyController {
   static create: IRouteController = async (req, res) => {
     const logger = new Log(res.locals.requestId, "CompanyController.create");
     try {
-      const companyCode = res.locals.companyCode;
       const company: ICompany = req.body;
-
-      // const valid = await companyService.validate(company);
-      // if (valid.errors) throw valid.message;
-
+      /** Verificar que no exista compañia con mismo codigo */
+      const exist = await companyService.findOne({ code: company.code });
+      if (exist)
+        throw new Error(
+          `Ya existe una compañia registrada con el codigo ${company.code}`
+        );
       const created = await companyService.insertOne(company);
 
       if (!created) throw "Compañia no fue creada";
@@ -42,13 +43,25 @@ export class CompanyController {
       return res.status(400).json({ ack: 0, message: e.message });
     }
   };
-
-  static update: IRouteController = (req, res) => {
+  static update: IRouteController = async (req, res) => {
     const logger = new Log(res.locals.requestId, "CompanyController.update");
     try {
+      const companyCode = res.locals.companyCode;
+      const companyUpdate: ICompany = req.body;
+      /** Verificar si existe */
+      const exist = await companyService.findOne({
+        code: companyCode,
+      });
+      if (!exist) throw new Error("Compañia no encontrada");
+      const response = await companyService.updateOne(
+        { code: exist.code },
+        { ...companyUpdate }
+      );
+      if (!response) throw new Error("Compañia no se actualizo");
+      return res.status(200).json({ ack: 0, message: "Compañia actualizada" });
     } catch (e) {
       logger.error(e);
-      return res.status(400).json({ message: e.message });
+      return res.status(400).json({ ack: 1, message: e.message });
     }
   };
 }

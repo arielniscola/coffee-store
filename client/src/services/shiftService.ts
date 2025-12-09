@@ -1,4 +1,3 @@
-import { addDays, format, startOfWeek } from "date-fns";
 import { ResponseApi } from "../interfaces/responseApi";
 import { IShift } from "../interfaces/shift";
 import { URL_API } from "./constants";
@@ -7,14 +6,8 @@ import { unauthorized } from ".";
 export const getShifts = async (date: string, unitBusiness?: string) => {
   try {
     /** Configurar fecha como principio de semana */
-    const newDate = new Date(date);
-    const startWeek = addDays(startOfWeek(newDate), 1);
-
     const res = await fetch(
-      `${URL_API}/shifts?date=${format(
-        startWeek,
-        "yyyy-MM-dd"
-      )}&unitBusiness=${unitBusiness}`,
+      `${URL_API}/shifts?date=${date}&unitBusiness=${unitBusiness}`,
       {
         method: "GET",
         headers: {
@@ -95,6 +88,26 @@ export const getStatistics = async (date: string) => {
   try {
     /** Configurar fecha como principio de semana */
     const res = await fetch(`${URL_API}/shifts/statistics?date=${date}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${localStorage.getItem("token")}`,
+      },
+    });
+
+    if (res.status === 401) unauthorized();
+    const response: ResponseApi<any> = await res.json();
+    if (!res.ok && typeof response.data == "string")
+      throw new Error(response.data);
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
+};
+export const getAvailableShifts = async (date: string) => {
+  try {
+    /** Configurar fecha como principio de semana */
+    const res = await fetch(`${URL_API}/shifts/availables?date=${date}`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",

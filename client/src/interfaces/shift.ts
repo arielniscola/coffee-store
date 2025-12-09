@@ -1,5 +1,5 @@
 export interface IShift {
-  _id: string;
+  _id?: string;
   timeStart: string;
   timeEnd: string;
   status: string;

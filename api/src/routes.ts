@@ -6,6 +6,7 @@ import { UnitBusinessController } from "./controllers/unitBusiness";
 import UserController from "./controllers/user";
 import { AuthenticationController } from "./controllers/authentication";
 import { TableController } from "./controllers/tables";
+import { ConfigController } from "./controllers/config";
 
 /**
  * Declaracion de Rutas.
@@ -71,6 +72,20 @@ const routes = defineRoutes([
         controller: CompanyController.create,
         auth: true,
       },
+      {
+        path: "/company",
+        label: "Compañia",
+        method: "get",
+        controller: CompanyController.find,
+        auth: true,
+      },
+      {
+        path: "/company",
+        label: "Compañia",
+        method: "put",
+        controller: CompanyController.update,
+        auth: true,
+      },
       // Turnos
       {
         path: "/shifts",
@@ -105,6 +120,13 @@ const routes = defineRoutes([
         label: "Turnos",
         method: "get",
         controller: ShiftController.statistics,
+        auth: true,
+      },
+      {
+        path: "/shifts/availables",
+        label: "Turnos",
+        method: "get",
+        controller: ShiftController.getAvaliableShifts,
         auth: true,
       },
       // Unidad de negocios
@@ -175,10 +197,26 @@ const routes = defineRoutes([
         auth: true,
       },
       {
-        path: "/tables",
+        path: "/tables/:id",
         label: "Mesas",
         method: "delete",
         controller: TableController.delete,
+        auth: true,
+      },
+
+      //Configuraciones
+      {
+        path: "/configs",
+        label: "Configuraciones",
+        method: "get",
+        controller: ConfigController.find,
+        auth: true,
+      },
+      {
+        path: "/configs",
+        label: "Configuraciones",
+        method: "put",
+        controller: ConfigController.update,
         auth: true,
       },
     ],

@@ -1,10 +1,11 @@
-import React, { useState, useRef } from "react";
-import { format, startOfWeek, addDays, parseISO } from "date-fns";
-import { es } from "date-fns/locale";
-import { Clock, ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
+import React, { useState, useRef, useEffect } from "react";
+import { Clock, Phone, Trash2 } from "lucide-react";
 import type { IShift } from "../../../interfaces/shift";
 import { IUnitBusiness } from "../../../interfaces/unitBusiness";
 import { Toaster } from "react-hot-toast";
+import { ITable } from "../../../interfaces/tables";
+import { IConfig } from "../../../interfaces/config";
+import { getConfigs } from "../../../services/config";
 
 interface CalendarProps {
   shifts: IShift[];
@@ -22,6 +23,7 @@ interface CalendarProps {
     endTime: string
   ) => void;
   deleteShift: (id: string) => void;
+  tables: ITable[];
 }
 
 const getColorStatus = (status: string) => {
@@ -35,29 +37,20 @@ const getColorStatus = (status: string) => {
     case "cancelled":
       return "#EF4444";
     default:
-      return "#FBBF24	";
+      return "#FDE047";
   }
 };
-
-// Calcular slots de tiempo
-const TIME_SLOTS = Array.from(
-  { length: 4 },
-  (_, i) => `${String(i + 16).padStart(2, "0")}:00`
-);
 
 export default function Calendar({
   shifts,
   onAddShift,
   onEditShift,
-  selectedDate,
-  onDateChange,
   onUpdateShift,
-  selectedUN,
-  setSelectedUN,
-  unitBusiness,
   deleteShift,
+  tables,
 }: CalendarProps) {
-  const startDate = startOfWeek(selectedDate);
+  const [slotCount, setSlotCount] = useState<number>(0);
+  const [initialTimeSlot, setInitialTimeSlot] = useState<number>(12);
   const dragRef = useRef<{
     shiftId: string;
     startY: number;
@@ -70,21 +63,28 @@ export default function Calendar({
     height: number;
   } | null>(null);
 
-  const weekDays = Array.from({ length: 7 }, (_, i) => {
-    const date = addDays(startDate, i + 1);
-    return format(date, "yyyy-MM-dd", { locale: es });
-  });
+  useEffect(() => {
+    loadSettings();
+  }, []);
 
-  const getShiftsForDate = (date: string) => {
-    const formatDate = date.concat("T00:00:00.000Z");
-    const shiftsDateFilter = shifts.filter((s) => s.date == formatDate);
-    return shiftsDateFilter;
+  async function loadSettings() {
+    try {
+      const data = (await getConfigs()) as IConfig[];
+      getTimeSlots(data);
+    } catch (error) {
+      console.error("Error loading settings:", error);
+    }
+  }
+
+  const getShiftsForTable = (table: number) => {
+    const shiftsTableFilter = shifts.filter((s) => s.tableNumber === table);
+    return shiftsTableFilter;
   };
 
   const getShiftPosition = (startTime: string) => {
     const [hours, minutes = 0] = startTime.split(":").map(Number);
 
-    return (hours - 16) * 60 + minutes;
+    return (hours - initialTimeSlot) * 60 + minutes;
   };
 
   const getShiftHeight = (startTime: string, endTime: string) => {
@@ -158,72 +158,49 @@ export default function Calendar({
       const newEndTime = getTimeFromPosition(
         dragPreview.top + dragPreview.height
       );
-      onUpdateShift(shift._id, shift.date, newStartTime, newEndTime);
+      onUpdateShift(shift._id || "", shift.date, newStartTime, newEndTime);
     }
 
     dragRef.current = null;
     setDragPreview(null);
   };
 
-  const handlePreviousWeek = () => {
-    onDateChange(addDays(selectedDate, -7));
-  };
+  const getTimeSlots = (data: IConfig[]) => {
+    const initialTime = data.find((conf) => conf.code == "timeStartDay")
+      ?.value as string;
+    const iniValue = initialTime.split(":");
+    const endTime = data.find((conf) => conf.code == "timeEndDay")
+      ?.value as string;
+    const endValue = endTime.split(":");
+    const durationShift = data.find((conf) => conf.code == "durationShift")
+      ?.value as number;
 
-  const handleNextWeek = () => {
-    onDateChange(addDays(selectedDate, 7));
+    let initialTimeMinutes = parseInt(iniValue[0]) * 60 + parseInt(iniValue[1]);
+    let endTimeMinutes = parseInt(endValue[0]) * 60 + parseInt(endValue[1]);
+    let totalSlots = (endTimeMinutes - initialTimeMinutes) / durationShift;
+    setInitialTimeSlot(parseInt(iniValue[0]));
+    setSlotCount(totalSlots * (durationShift / 60));
   };
+  // Calcular slots de tiempo
+  const TIME_SLOTS = Array.from(
+    { length: slotCount },
+    (_, i) => `${String(i + initialTimeSlot).padStart(2, "0")}:00`
+  );
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handlePreviousWeek}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-          >
-            <ChevronLeft className="w-5 h-5" />
-          </button>
-          <input
-            type="date"
-            value={format(selectedDate, "yyyy-MM-dd", { locale: es })}
-            onChange={(e) => onDateChange(new Date(e.target.value))}
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          />
-          <button
-            onClick={handleNextWeek}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-          >
-            <ChevronRight className="w-5 h-5" />
-          </button>
-          <select
-            value={selectedUN?.code}
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500r"
-            onChange={(e) =>
-              setSelectedUN(unitBusiness.find((u) => u.code === e.target.value))
-            }
-          >
-            {unitBusiness.map((unit) => (
-              <option key={unit.code} value={unit.code}>
-                {unit.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="text-sm text-gray-600">
-          Semana del{" "}
-          {format(addDays(startDate, 1), "d MMMM, yyyy", { locale: es })}
-        </div>
-      </div>
-
       <div className="bg-white rounded-xl shadow-lg overflow-hidden">
         <div className="grid grid-cols-[60px_repeat(7,1fr)] bg-gray-50">
           <div className="p-4 border-b border-r border-gray-200"></div>
-          {weekDays.map((date) => (
-            <div key={date} className="p-4 border-b border-r border-gray-200">
+          {tables.map((tab) => (
+            <div
+              key={tab.number}
+              className="p-4 border-b border-r border-gray-200"
+            >
               <h3 className="font-semibold text-gray-900">
-                {format(parseISO(date), "EEE", { locale: es })}
+                Mesa N°{tab.number}
               </h3>
               <p className="text-sm text-gray-500">
-                {format(parseISO(date), "MMM d", { locale: es })}
+                Capacidad: {tab.capacity} personas
               </p>
             </div>
           ))}
@@ -241,9 +218,9 @@ export default function Calendar({
             ))}
           </div>
 
-          {weekDays.map((date) => (
+          {tables.map((tab) => (
             <div
-              key={date}
+              key={tab.number}
               className="border-r border-b border-gray-200 relative"
               onDragOver={(e) => {
                 e.preventDefault();
@@ -259,28 +236,15 @@ export default function Calendar({
                 <div
                   key={time}
                   className="h-[60px] border-b border-gray-100"
-                  onClick={() => onAddShift(date, time)}
+                  onClick={() => onAddShift(new Date().toISOString(), time)}
                 />
               ))}
 
-              {/* Current time indicator */}
-              {/* {format(new Date(), "yyyy-MM-dd") === date && (
-                <div
-                  className="absolute left-0 right-0 h-0.5 bg-red-500 z-10"
-                  style={{
-                    top: `${
-                      new Date().getHours() * 60 + new Date().getMinutes()
-                    }px`,
-                  }}
-                />
-              )} */}
-
               {/* Shifts */}
-              {getShiftsForDate(date).map((shift: IShift) => {
+              {getShiftsForTable(tab.number).map((shift: IShift) => {
                 const top = getShiftPosition(shift.timeStart);
                 const height = getShiftHeight(shift.timeStart, shift.timeEnd);
                 const isBeingDragged = dragRef.current?.shiftId === shift._id;
-
                 return (
                   <div
                     key={shift._id}
@@ -300,7 +264,7 @@ export default function Calendar({
                     }}
                     draggable
                     onDragStart={(e) =>
-                      handleDragStart(e, shift._id, top, "move")
+                      handleDragStart(e, shift._id || "", top, "move")
                     }
                     onClick={(e) => {
                       e.stopPropagation();
@@ -316,13 +280,17 @@ export default function Calendar({
                           className="w-4 h-4 text-white/70 cursor-pointer"
                           onClick={(e) => {
                             e.stopPropagation();
-                            deleteShift(shift._id);
+                            deleteShift(shift._id || "");
                           }}
                         />
                       </div>
                       <div className="flex items-center gap-1 text-white/90 text-xs">
                         <Clock className="w-3 h-3" />
                         {shift.timeStart} - {shift.timeEnd}
+                      </div>
+                      <div className="flex items-center gap-1 text-white/90 text-xs">
+                        <Phone className="w-3 h-3" />
+                        {shift.phoneNumber}
                       </div>
                       <div className="flex items-center gap-1 text-white/90 text-xs">
                         <span className="font-semibold">

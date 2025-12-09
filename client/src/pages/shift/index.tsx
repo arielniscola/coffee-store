@@ -3,7 +3,7 @@ import Header from "../../partials/headers";
 import { Sidebar } from "../../partials/sidebar";
 import { Calendar, List } from "lucide-react";
 import CalendarMenu from "./calendar/CalendarMenu";
-import { ListView } from "./list/list";
+import { ReservationList } from "./list/list";
 
 export const ShiftView = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -21,7 +21,7 @@ export const ShiftView = () => {
             <div>
               <div className="flex items-center space-x-4 mt-4">
                 <h1 className="text-3xl font-bold text-gray-900">
-                  Gestion Turnos
+                  Gestion Reservas
                 </h1>
                 <div className="flex items-center bg-gray-100 rounded-lg p-1">
                   <button
@@ -47,12 +47,10 @@ export const ShiftView = () => {
                 </div>
               </div>
 
-              <p className="text-gray-600 mt-1">
-                Gestione sus turnos por canchas
-              </p>
+              <p className="text-gray-600 mt-1">Gestione sus Reservas</p>
             </div>
           </div>
-          {viewMode === "calendar" ? <CalendarMenu /> : <ListView />}
+          {viewMode === "calendar" ? <CalendarMenu /> : <ReservationList />}
         </main>
       </div>
     </div>
