@@ -58,8 +58,8 @@ function LandingPage() {
 
       <main>
         <section
-          className="relative h-[600px] bg-cover bg-center"
-          style={{ backgroundImage: "url('/public/images/fondo.jpeg')" }}
+          className="relative h-[700px] bg-cover bg-center bg-no-repeat"
+          style={{ backgroundImage: "url('/public/images/fondo3.png')" }}
         >
           <div className="absolute inset-0 bg-gradient-to-b from-black/30 to-black/10 flex items-center justify-center">
             <div className="text-center text-white px-6">
@@ -145,11 +145,7 @@ function LandingPage() {
                 <h3 className="text-xl font-bold text-orange-400 mb-3">
                   Teléfono
                 </h3>
-                <p className="text-gray-700">
-                  {company?.cellphone}
-                  <br />
-                  Lun-Dom: 9AM - 7PM
-                </p>
+                <p className="text-gray-700">{company?.cellphone}</p>
               </div>
               <div className="text-center">
                 <div className="bg-gradient-to-r from-blue-300 to-blue-400 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg">
