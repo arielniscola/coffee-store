@@ -1,6 +1,7 @@
 import { ObjectId } from "mongoose";
 import { Document, insertManyOptions, Service } from ".";
 import { IShift, ShiftModel } from "../models/shift";
+import { tableService } from "./table";
 
 export class ShiftService extends Service<IShift> {
   constructor() {
@@ -33,37 +34,30 @@ export class ShiftService extends Service<IShift> {
 
   private async validatedShift(shift: Partial<IShift>) {
     try {
-      /** Validar si el turno ya se encuentra ocupado */
-      const shiftFounded = await super.findOne(
+      const shiftsFounded = await super.find(
         {
           date: shift.date,
           unitBusiness: shift.unitBusiness,
-          tableNumber: shift.tableNumber,
           companyCode: shift.companyCode,
-          $or: [
-            {
-              // Caso 1: El nuevo turno comienza dentro de un turno existente
-              timeStart: { $lt: shift.timeEnd },
-              timeEnd: { $gt: shift.timeStart },
-            },
-            {
-              // Caso 2: El nuevo turno contiene completamente un turno existente
-              timeStart: { $gte: shift.timeStart },
-              timeEnd: { $lte: shift.timeEnd },
-            },
-            {
-              // Caso 3: El nuevo turno es contenido por un turno existente
-              timeStart: { $lte: shift.timeStart },
-              timeEnd: { $gte: shift.timeEnd },
-            },
-          ],
+          timeStart: shift.timeStart,
         },
         {},
         { lean: true }
       );
-      /** Si el turno que encuentra es el que se esta mofificando devolver true */
-      if (shift._id && shiftFounded?._id.toString() === shift._id) return true;
-      if (shiftFounded) return false;
+      /** Validar que queden lugares disponibles */
+      const tables = await tableService.find({
+        companyCode: shift.companyCode,
+        unitBusiness: shift.unitBusiness,
+        active: true,
+      });
+      /** Si es un turno que esta dentro del horario devolver true */
+      const isUpdate = shiftsFounded.find((s) => s._id == shift._id);
+      if (isUpdate) return true;
+      let availablePlaces = 0;
+      tables.map((t) => (availablePlaces += t.capacity));
+      let ocupationsPlaces = 0;
+      shiftsFounded.map((s) => (ocupationsPlaces += s.peopleQty));
+      if (availablePlaces <= ocupationsPlaces) return false;
       return true;
     } catch (e) {
       throw e;

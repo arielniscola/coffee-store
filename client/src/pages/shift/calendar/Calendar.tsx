@@ -1,11 +1,13 @@
-import React, { useState, useRef, useEffect } from "react";
-import { Clock, Phone, Trash2 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Clock, Phone, Trash2, Users } from "lucide-react";
 import type { IShift } from "../../../interfaces/shift";
 import { IUnitBusiness } from "../../../interfaces/unitBusiness";
 import { Toaster } from "react-hot-toast";
 import { ITable } from "../../../interfaces/tables";
 import { IConfig } from "../../../interfaces/config";
 import { getConfigs } from "../../../services/config";
+import moment from "moment";
+import { format } from "date-fns";
 
 interface CalendarProps {
   shifts: IShift[];
@@ -16,56 +18,36 @@ interface CalendarProps {
   selectedUN: IUnitBusiness | undefined;
   setSelectedUN: (unit: IUnitBusiness | undefined) => void;
   unitBusiness: IUnitBusiness[];
-  onUpdateShift: (
-    shiftId: string,
-    date: string,
-    startTime: string,
-    endTime: string
-  ) => void;
   deleteShift: (id: string) => void;
   tables: ITable[];
 }
-
-const getColorStatus = (status: string) => {
-  switch (status) {
-    case "paid":
-      return "#10B981	";
-    case "confirmed":
-      return "#3B82F6	";
-    case "debt":
-      return "#EF4444";
-    case "cancelled":
-      return "#EF4444";
-    default:
-      return "#FDE047";
-  }
-};
 
 export default function Calendar({
   shifts,
   onAddShift,
   onEditShift,
-  onUpdateShift,
   deleteShift,
+  selectedDate,
   tables,
 }: CalendarProps) {
   const [slotCount, setSlotCount] = useState<number>(0);
   const [initialTimeSlot, setInitialTimeSlot] = useState<number>(12);
-  const dragRef = useRef<{
-    shiftId: string;
-    startY: number;
-    originalTop: number;
-    startX: number;
-    type: "move" | "resize";
-  } | null>(null);
-  const [dragPreview, setDragPreview] = useState<{
-    top: number;
-    height: number;
-  } | null>(null);
-
+  const [totalCapacity, setTotalCapacity] = useState<number>(0);
   useEffect(() => {
     loadSettings();
-  }, []);
+    calculateCapacity();
+  }, [selectedDate, tables]);
+
+  const reservesSchedule = () => {
+    let schedule: { time: string; shifts: IShift[] }[] = [];
+    TIME_SLOTS.map((t) => schedule.push({ time: t, shifts: [] }));
+    for (const reser of shifts) {
+      const i = schedule.findIndex((s) => s.time == reser.timeStart);
+
+      if (i >= 0) schedule[i].shifts.push(reser);
+    }
+    return schedule;
+  };
 
   async function loadSettings() {
     try {
@@ -76,105 +58,65 @@ export default function Calendar({
     }
   }
 
-  const getShiftsForTable = (table: number) => {
-    const shiftsTableFilter = shifts.filter((s) => s.tableNumber === table);
-    return shiftsTableFilter;
+  const calculateCapacity = () => {
+    let total = 0;
+    tables.map((t) => (total += t.capacity));
+    setTotalCapacity(total);
   };
 
-  const getShiftPosition = (startTime: string) => {
-    const [hours, minutes = 0] = startTime.split(":").map(Number);
-
-    return (hours - initialTimeSlot) * 60 + minutes;
-  };
-
-  const getShiftHeight = (startTime: string, endTime: string) => {
-    const start = getShiftPosition(startTime);
-    const end = getShiftPosition(endTime);
-    return end - start;
-  };
-
-  const getTimeFromPosition = (position: number) => {
-    const hours = Math.floor(position / 60) + 16;
-    const minutes = position % 60;
-    return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(
-      2,
-      "0"
-    )}`;
-  };
-
-  const handleDragStart = (
-    e: React.MouseEvent,
-    shiftId: string,
-    currentTop: number,
-    type: "move" | "resize"
-  ) => {
-    e.stopPropagation();
-    const container = (e.target as HTMLElement).closest(
-      ".shift-container"
-    ) as HTMLElement;
-    if (!container) return;
-
-    dragRef.current = {
-      shiftId,
-      startY: e.clientY,
-      originalTop: currentTop,
-      startX: e.clientX,
-      type,
+  const calcularOcupacion = (reservas: IShift[]) => {
+    const reserv = reservas.filter((r) => r.status != "cancelled");
+    const total = reserv.reduce(
+      (sum: number, r: IShift) => sum + r.peopleQty,
+      0
+    );
+    return {
+      ocupados: total,
+      disponibles: totalCapacity - total,
+      porcentaje: (total / totalCapacity) * 100,
     };
-
-    setDragPreview({
-      top: currentTop,
-      height: parseInt(container.style.height),
-    });
   };
 
-  const handleDragMove = (e: React.DragEvent<HTMLDivElement>) => {
-    if (!dragRef.current || !dragPreview) return;
-
-    const deltaY = e.clientY - dragRef.current.startY;
-    const gridSize = 30; // Snap to 15-minute intervals
-    const snappedDeltaY = Math.round(deltaY / gridSize) * gridSize;
-
-    if (dragRef.current.type === "move") {
-      setDragPreview({
-        ...dragPreview,
-        top: Math.max(0, dragRef.current.originalTop + snappedDeltaY),
-      });
-    } else {
-      setDragPreview({
-        ...dragPreview,
-        height: Math.max(gridSize, dragPreview.height + snappedDeltaY),
-      });
+  const getEstadoColor = (estado: string) => {
+    switch (estado) {
+      case "toConfirm":
+        return "bg-yellow-200 text-white-800";
+      case "confirmed":
+        return "bg-blue-500 text-white-800";
+      case "cancelled":
+        return "bg-red-300 text-white-800";
+      case "completed":
+        return "bg-green-300 text-white-800";
+      case "paid":
+        return "bg-green-500 text-white-800";
     }
   };
 
-  const handleDragEnd = () => {
-    if (!dragRef.current || !dragPreview) return;
-
-    const shift = shifts.find((s) => s._id === dragRef.current?.shiftId);
-
-    if (shift) {
-      const newStartTime = getTimeFromPosition(dragPreview.top);
-      const newEndTime = getTimeFromPosition(
-        dragPreview.top + dragPreview.height
-      );
-      onUpdateShift(shift._id || "", shift.date, newStartTime, newEndTime);
-    }
-
-    dragRef.current = null;
-    setDragPreview(null);
+  const getOcupacionColor = (porcentaje: number) => {
+    if (porcentaje >= 90) return "bg-red-500";
+    if (porcentaje >= 70) return "bg-orange-500";
+    if (porcentaje >= 50) return "bg-yellow-500";
+    return "bg-green-500";
   };
 
   const getTimeSlots = (data: IConfig[]) => {
-    const initialTime = data.find((conf) => conf.code == "timeStartDay")
+    let day = moment(selectedDate).format("dddd");
+    day = day.charAt(0).toUpperCase() + day.slice(1);
+
+    const timeSchedule = data.find((conf) => conf.code == `scheduleDay${day}`)
       ?.value as string;
+    /** Validamos cuantos horarios contiene */
+    const scheduleSlot = timeSchedule.trim().split(",");
+
+    const initialTime = scheduleSlot[0].split("-")[0];
     const iniValue = initialTime.split(":");
-    const endTime = data.find((conf) => conf.code == "timeEndDay")
-      ?.value as string;
+    const endTime =
+      scheduleSlot.length == 2
+        ? scheduleSlot[1].split("-")[1]
+        : scheduleSlot[0].split("-")[1];
     const endValue = endTime.split(":");
     const durationShift = data.find((conf) => conf.code == "durationShift")
       ?.value as number;
-
     let initialTimeMinutes = parseInt(iniValue[0]) * 60 + parseInt(iniValue[1]);
     let endTimeMinutes = parseInt(endValue[0]) * 60 + parseInt(endValue[1]);
     let totalSlots = (endTimeMinutes - initialTimeMinutes) / durationShift;
@@ -188,121 +130,124 @@ export default function Calendar({
   );
   return (
     <div className="space-y-4">
+      <div className="flex justify-end">
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onAddShift(format(selectedDate, "yyyy-MM-dd"), "");
+          }}
+          className="bg-indigo-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-indigo-700 transition-colors"
+        >
+          Agregar Reserva
+        </button>
+      </div>
       <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-        <div className="grid grid-cols-[60px_repeat(7,1fr)] bg-gray-50">
-          <div className="p-4 border-b border-r border-gray-200"></div>
-          {tables.map((tab) => (
-            <div
-              key={tab.number}
-              className="p-4 border-b border-r border-gray-200"
-            >
-              <h3 className="font-semibold text-gray-900">
-                Mesa N°{tab.number}
-              </h3>
-              <p className="text-sm text-gray-500">
-                Capacidad: {tab.capacity} personas
-              </p>
-            </div>
-          ))}
-        </div>
-
-        <div className="relative grid grid-cols-[60px_repeat(7,1fr)] overflow-y-auto">
-          <div className="border-r border-gray-200">
-            {TIME_SLOTS.map((time) => (
-              <div
-                key={time}
-                className="h-[60px] border-b border-gray-100 text-xs text-gray-500 text-right pr-2 pt-1"
-              >
-                {time}
-              </div>
-            ))}
-          </div>
-
-          {tables.map((tab) => (
-            <div
-              key={tab.number}
-              className="border-r border-b border-gray-200 relative"
-              onDragOver={(e) => {
-                e.preventDefault();
-                handleDragMove(e);
-              }}
-              onDrop={(e) => {
-                e.preventDefault();
-                handleDragEnd();
-              }}
-            >
-              {/* Time grid lines */}
-              {TIME_SLOTS.map((time) => (
-                <div
-                  key={time}
-                  className="h-[60px] border-b border-gray-100"
-                  onClick={() => onAddShift(new Date().toISOString(), time)}
-                />
-              ))}
-
-              {/* Shifts */}
-              {getShiftsForTable(tab.number).map((shift: IShift) => {
-                const top = getShiftPosition(shift.timeStart);
-                const height = getShiftHeight(shift.timeStart, shift.timeEnd);
-                const isBeingDragged = dragRef.current?.shiftId === shift._id;
-                return (
-                  <div
-                    key={shift._id}
-                    className={`shift-container absolute left-1 right-1 rounded-lg shadow-sm cursor-move transition-shadow hover:shadow-md overflow-hidden ${
-                      isBeingDragged ? "opacity-50" : ""
-                    }`}
-                    style={{
-                      top: `${
-                        isBeingDragged && dragPreview ? dragPreview.top : top
-                      }px`,
-                      height: `${
-                        isBeingDragged && dragPreview
-                          ? dragPreview.height
-                          : height
-                      }px`,
-                      backgroundColor: getColorStatus(shift.status),
-                    }}
-                    draggable
-                    onDragStart={(e) =>
-                      handleDragStart(e, shift._id || "", top, "move")
-                    }
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onEditShift(shift);
-                    }}
-                  >
-                    <div className="p-2 h-full flex flex-col">
-                      <div className="flex items-center justify-between">
-                        <div className="text-white text-sm font-medium truncate">
-                          {shift.client}
-                        </div>
-                        <Trash2
-                          className="w-4 h-4 text-white/70 cursor-pointer"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            deleteShift(shift._id || "");
-                          }}
-                        />
-                      </div>
-                      <div className="flex items-center gap-1 text-white/90 text-xs">
-                        <Clock className="w-3 h-3" />
-                        {shift.timeStart} - {shift.timeEnd}
-                      </div>
-                      <div className="flex items-center gap-1 text-white/90 text-xs">
-                        <Phone className="w-3 h-3" />
-                        {shift.phoneNumber}
-                      </div>
-                      <div className="flex items-center gap-1 text-white/90 text-xs">
-                        <span className="font-semibold">
-                          {shift.description || ""}
-                        </span>
-                      </div>
+        <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b-2 border-gray-200">
+                <tr>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900 w-32">
+                    <div className="flex items-center gap-2">
+                      <Clock size={18} />
+                      Horario
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-          ))}
+                  </th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
+                    Reservas
+                  </th>
+                  <th className="px-6 py-4 text-center text-sm font-semibold text-gray-900 w-64">
+                    <div className="flex items-center justify-center gap-2">
+                      <Users size={18} />
+                      Ocupación
+                    </div>
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {reservesSchedule().map((slot) => {
+                  const ocupacion = calcularOcupacion(slot.shifts);
+                  return (
+                    <tr
+                      key={slot.time}
+                      className="hover:bg-gray-50 transition-colors"
+                    >
+                      <td className="px-4 py-2 text-sm font-medium text-gray-900">
+                        {slot.time}
+                      </td>
+                      <td className="px-4 py-2">
+                        {slot.shifts.length === 0 ? (
+                          <div className="text-sm text-gray-400 italic">
+                            Sin reservas
+                          </div>
+                        ) : (
+                          <div className="flex flex-wrap gap-1">
+                            {slot.shifts.map((reserva) => (
+                              <div
+                                key={reserva._id}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onEditShift(reserva);
+                                }}
+                                className={`relative px-4 py-3 rounded-lg text-sm ${getEstadoColor(
+                                  reserva.status
+                                )} min-w-64 shadow-sm`}
+                              >
+                                {/* Botón eliminar */}
+                                <div className="flex items-center justify-between">
+                                  <div className="text-white text-sm font-medium truncate">
+                                    {reserva.client}
+                                  </div>
+                                  <Trash2
+                                    className="w-4 h-4 text-white/70 cursor-pointer"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      deleteShift(reserva._id || "");
+                                    }}
+                                  />
+                                </div>
+                                <div className="flex items-center gap-1 text-white/90 text-xs">
+                                  <Clock className="w-3 h-3" />
+                                  {reserva.timeStart} - {reserva.timeEnd}
+                                </div>
+                                <div className="flex items-center gap-1 text-white/90 text-xs">
+                                  <Phone className="w-3 h-3" />
+                                  {reserva.phoneNumber}
+                                </div>
+                                <div className="flex items-center gap-1 text-white/90 text-xs">
+                                  <span className="font-semibold">
+                                    {reserva.description || ""}
+                                  </span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex flex-col items-center gap-2">
+                          <div className="text-sm font-semibold text-gray-900">
+                            {ocupacion.ocupados} / {totalCapacity}
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                            <div
+                              className={`h-full ${getOcupacionColor(
+                                ocupacion.porcentaje
+                              )} transition-all duration-300`}
+                              style={{ width: `${ocupacion.porcentaje}%` }}
+                            />
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {ocupacion.disponibles} disponibles
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
         <Toaster position="bottom-right" />
       </div>

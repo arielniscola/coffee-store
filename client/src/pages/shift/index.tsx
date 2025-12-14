@@ -46,8 +46,6 @@ export const ShiftView = () => {
                   </button>
                 </div>
               </div>
-
-              <p className="text-gray-600 mt-1">Gestione sus Reservas</p>
             </div>
           </div>
           {viewMode === "calendar" ? <CalendarMenu /> : <ReservationList />}

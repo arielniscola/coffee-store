@@ -11,7 +11,8 @@ export interface IShift {
   description: string;
   client: string;
   unitBusiness: string;
-  tableNumber?: number;
+  tableNumber?: string;
+  peopleQty?: number;
   email: string;
   phoneNumber: string;
 }
@@ -51,8 +52,12 @@ export const ShiftSchema = createSchema<IShift>({
     required: true,
   },
   tableNumber: {
+    type: String,
+    required: false,
+  },
+  peopleQty: {
     type: Number,
-    required: true,
+    required: false,
   },
   description: {
     type: String,

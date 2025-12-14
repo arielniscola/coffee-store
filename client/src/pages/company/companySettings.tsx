@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Settings, Save } from "lucide-react";
+import { Settings, Save, AlertCircle, X } from "lucide-react";
 import { IConfig } from "../../interfaces/config";
 import { getConfigs, updateConfig } from "../../services/config";
 import toast, { Toaster } from "react-hot-toast";
@@ -11,6 +11,7 @@ export function CompanySettings() {
   const [settings, setSettings] = useState<IConfig[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [editedValues, setEditedValues] = useState<{
     [key: string]: string | boolean | number | object;
   }>({});
@@ -45,10 +46,14 @@ export function CompanySettings() {
       for (const setting of settings) {
         if (editedValues[setting.code] !== setting.value) {
           setting.value = editedValues[setting.code];
-          const res = await updateConfig(setting);
-          if (res.ack) {
-            notifyError(res.message || "Error al actualizar config");
-            throw new Error(res.message);
+          if (handleChange(setting)) {
+            const res = await updateConfig(setting);
+            if (res.ack) {
+              notifyError(res.message || "Error al actualizar config");
+              throw new Error(res.message);
+            }
+          } else {
+            setError(`Error en la config ${setting.name}, valor invalido`);
           }
         }
       }
@@ -125,6 +130,46 @@ export function CompanySettings() {
     );
   }
 
+  const handleChange = (val: IConfig): boolean => {
+    if (val.code.includes("schedule")) {
+      return isValidRange(val.value as string);
+    } else {
+      return true;
+    }
+  };
+
+  function isValidRange(input: string): boolean {
+    // regex para un solo rango HH:mm-HH:mm
+    const rangeRegex = /^([01]\d|2[0-3]):([0-5]\d)-([01]\d|2[0-3]):([0-5]\d)$/;
+
+    if (!input || typeof input !== "string") return false;
+
+    // separar por coma y limpiar espacios
+    const ranges = input
+      .split(",")
+      .map((r) => r.trim())
+      .filter((r) => r.length > 0);
+
+    if (ranges.length === 0) return false;
+
+    for (const r of ranges) {
+      if (!rangeRegex.test(r)) return false;
+
+      const [start, end] = r.split("-");
+      const startMinutes = toMinutes(start);
+      const endMinutes = toMinutes(end);
+
+      if (!(startMinutes < endMinutes)) return false; // inicio debe ser menor que fin
+    }
+
+    return true;
+  }
+
+  function toMinutes(hhmm: string) {
+    const [h, m] = hhmm.split(":").map(Number);
+    return h * 60 + m;
+  }
+
   return (
     <div className="max-w-5xl">
       <div className="bg-white rounded-lg border border-gray-200 p-8">
@@ -150,7 +195,21 @@ export function CompanySettings() {
             </button>
           ))}
         </div>
-
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex gap-3 mb-6">
+            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-red-800 font-medium">Error</p>
+              <p className="text-red-700 text-sm mt-1">{error}</p>
+            </div>
+            <button
+              onClick={() => setError(null)}
+              className="text-red-600 hover:text-red-800"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        )}
         <div className="space-y-4">
           {filteredSettings.length === 0 ? (
             <div className="text-center py-12 text-gray-500">

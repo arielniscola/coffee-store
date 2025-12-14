@@ -1,8 +1,5 @@
-import moment from "moment";
 import Log from "../libs/logger";
-import { IShift } from "../models/shift";
 import { IRouteController } from "../routes/index";
-import { shiftService } from "../services/shift";
 import { IConfig } from "../models/config";
 import configService from "../services/config";
 
@@ -30,6 +27,9 @@ export class ConfigController {
         code: configUpdate.code,
         companyCode: configUpdate.companyCode,
       });
+      if (exist.type == "number") {
+        configUpdate.value = parseInt(configUpdate.value as string);
+      }
       if (!exist) throw new Error("Config no encontrado");
       const response = await configService.updateOne(
         { code: exist.code, companyCode: exist.companyCode },

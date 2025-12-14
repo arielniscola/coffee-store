@@ -1,27 +1,27 @@
 const images = [
   {
-    url: "https://images.pexels.com/photos/312418/pexels-photo-312418.jpeg?auto=compress&cs=tinysrgb&w=800",
-    alt: "Taza de café con arte latte",
+    url: "public/images/galeria1.jpeg",
+    alt: "",
   },
   {
-    url: "https://images.pexels.com/photos/1884584/pexels-photo-1884584.jpeg?auto=compress&cs=tinysrgb&w=800",
-    alt: "Interior acogedor del café",
+    url: "public/images/galeria2.jpeg",
+    alt: "",
   },
   {
-    url: "https://images.pexels.com/photos/2788792/pexels-photo-2788792.jpeg?auto=compress&cs=tinysrgb&w=800",
-    alt: "Granos de café frescos",
+    url: "public/images/galeria3.jpeg",
+    alt: "",
   },
   {
-    url: "https://images.pexels.com/photos/851555/pexels-photo-851555.jpeg?auto=compress&cs=tinysrgb&w=800",
-    alt: "Barista preparando café",
+    url: "public/images/galeria4.jpeg",
+    alt: "",
   },
   {
-    url: "https://images.pexels.com/photos/2074130/pexels-photo-2074130.jpeg?auto=compress&cs=tinysrgb&w=800",
-    alt: "Pastelería y dulces",
+    url: "public/images/galeria5.jpeg",
+    alt: "",
   },
   {
-    url: "https://images.pexels.com/photos/1549280/pexels-photo-1549280.jpeg?auto=compress&cs=tinysrgb&w=800",
-    alt: "Espacio exterior del café",
+    url: "public/images/galeria6.jpeg",
+    alt: "",
   },
 ];
 

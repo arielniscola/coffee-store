@@ -121,11 +121,11 @@ export function ReservationList() {
       case "paid":
         return "Pagado";
       case "confirmed":
-        return "Confirmada";
+        return "Confirmado";
       case "cancelled":
-        return "Cancelada";
+        return "Cancelado";
       case "completed":
-        return "Completada";
+        return "Completado";
       case "debt":
         return "Impaga";
       default:
@@ -177,21 +177,26 @@ export function ReservationList() {
         </div>
       </div>
       <div className="flex gap-2 flex-wrap">
-        {["all", "toConfirm", "confirmed", "cancelled", "completed"].map(
-          (status) => (
-            <button
-              key={status}
-              onClick={() => setFilter(status as any)}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                filter === status
-                  ? "bg-blue-600 text-white"
-                  : "bg-white text-gray-700 hover:bg-gray-100 border border-gray-300"
-              }`}
-            >
-              {status === "all" ? "Todas" : getStatusText(status)}
-            </button>
-          )
-        )}
+        {[
+          "all",
+          "toConfirm",
+          "confirmed",
+          "cancelled",
+          "completed",
+          "paid",
+        ].map((status) => (
+          <button
+            key={status}
+            onClick={() => setFilter(status as any)}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              filter === status
+                ? "bg-blue-600 text-white"
+                : "bg-white text-gray-700 hover:bg-gray-100 border border-gray-300"
+            }`}
+          >
+            {status === "all" ? "Todas" : getStatusText(status)}
+          </button>
+        ))}
       </div>
 
       <div className="grid gap-4">
@@ -206,12 +211,13 @@ export function ReservationList() {
               className="bg-white rounded-lg border border-gray-200 p-3 hover:shadow-md transition-shadow"
             >
               <div className="flex justify-between items-start mb-4">
-                <div>
+                <div className="flex items-center gap-3">
                   <h3 className="text-xl font-semibold text-gray-900">
                     {reservation.client}
                   </h3>
+
                   <span
-                    className={`inline-block mt-2 px-3 py-1 rounded-full text-sm font-medium border ${getStatusColor(
+                    className={`px-3 py-1 rounded-full text-sm font-medium border ${getStatusColor(
                       reservation.status
                     )}`}
                   >
@@ -281,11 +287,6 @@ export function ReservationList() {
                   <div className="flex items-center gap-2 text-gray-700">
                     <Phone className="w-4 h-4" />
                     <span className="text-sm">{reservation.phoneNumber}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-gray-700">
-                    <span className="text-sm font-medium">
-                      Mesa #{reservation.tableNumber || "N/A"}
-                    </span>
                   </div>
                 </div>
               </div>

@@ -19,8 +19,7 @@ const Login = () => {
     <div
       className="min-h-screen flex items-center justify-center p-4 relative"
       style={{
-        backgroundImage:
-          'url("https://ik.imagekit.io/ferranfigueredo/tr:w-690,h-462/https%3A%2F%2Fimages.unsplash.com%2Fphoto-1601646761285-65bfa67cd7a3%3Fcrop%3Dentropy%26cs%3Dtinysrgb%26fit%3Dmax%26fm%3Djpg%26ixid%3DM3w4OTAxNnwwfDF8cmFuZG9tfHx8fHx8fHx8MTczNjc5Mjg2Nnw%26ixlib%3Drb-4.0.3%26q%3D80%26w%3D1080?ik-sdk-version=php-1.2.2")',
+        backgroundImage: "url(/public/images/login-bg.jpeg)",
         backgroundSize: "cover",
         backgroundPosition: "center",
         backgroundRepeat: "no-repeat",

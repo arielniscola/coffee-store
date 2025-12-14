@@ -11,10 +11,34 @@ import Gallery from "../../components/Gallery";
 import ReservationButton from "../../components/ReservationButton";
 import ReservationModal from "../../components/ReservationModal";
 import FloorPlan from "../../components/FloorPlan";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import InformationModal from "../../components/InformationModal";
+import ConfirmationModal from "../../components/ConfirmationModal";
+import { IShift } from "../../interfaces/shift";
+import { ICompany } from "../../interfaces/company";
+import { getCompany } from "../../services/company";
 
 function LandingPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [confirmShift, setConfirmShift] = useState<IShift | undefined>();
+  const [company, setCompany] = useState<ICompany | undefined>();
+
+  useEffect(() => {
+    loadProfile();
+  }, []);
+
+  async function loadProfile() {
+    try {
+      const data = (await getCompany()) as ICompany;
+      if (data) {
+        setCompany(data);
+      }
+    } catch (error) {
+      console.error("Error loading profile:", error);
+    }
+  }
 
   return (
     <div className="min-h-screen bg-blue-50">
@@ -22,9 +46,9 @@ function LandingPage() {
         <nav className="container mx-auto px-6 py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <Sparkles className="w-10 h-10" />
+              <img className="w-20 h-20" src={"/public/images/logo3.png"}></img>
               <h1 className="text-3xl font-bold tracking-tight">
-                WichiWi Cafe Kids
+                Wichi Wi Cafe Kids
               </h1>
             </div>
             <ReservationButton onClick={() => setIsModalOpen(true)} />
@@ -33,16 +57,14 @@ function LandingPage() {
       </header>
 
       <main>
-        <section className="relative h-[600px] overflow-hidden">
-          <img
-            src="https://images.pexels.com/photos/1092730/pexels-photo-1092730.jpeg?auto=compress&cs=tinysrgb&w=1920"
-            alt="Café para familias"
-            className="w-full h-full object-cover"
-          />
+        <section
+          className="relative h-[600px] bg-cover bg-center"
+          style={{ backgroundImage: "url('/public/images/fondo.jpeg')" }}
+        >
           <div className="absolute inset-0 bg-gradient-to-b from-black/30 to-black/10 flex items-center justify-center">
             <div className="text-center text-white px-6">
               <h2 className="text-6xl font-bold mb-4 tracking-tight">
-                Bienvenido a WichiWi
+                Bienvenido a Wichi Wi
               </h2>
               <p className="text-2xl mb-8 font-light">
                 Un café especial para la familia
@@ -51,14 +73,14 @@ function LandingPage() {
                 onClick={() => setIsModalOpen(true)}
                 className="bg-pink-400 hover:bg-pink-300 text-white px-10 py-4 rounded-full text-lg font-semibold transition-all transform hover:scale-105 shadow-xl"
               >
-                Reservar Mesa
+                Reservar Turno
               </button>
             </div>
           </div>
         </section>
 
         <section className="container mx-auto px-6 py-20">
-          <div className="text-center mb-16">
+          <div className="text-center mb-10">
             <h2 className="text-5xl font-bold text-pink-400 mb-4">
               Nuestra Historia
             </h2>
@@ -74,12 +96,10 @@ function LandingPage() {
 
         <section className="bg-gradient-to-b from-blue-50 to-pink-50 py-20">
           <div className="container mx-auto px-6">
-            <div className="text-center mb-16">
+            <div className="text-center mb-10">
               <h2 className="text-5xl font-bold text-blue-400 mb-4">Galería</h2>
               <div className="w-24 h-1 bg-gradient-to-r from-pink-300 to-blue-300 mx-auto mb-8"></div>
-              <p className="text-xl text-gray-700">
-                Descubre nuestro acogedor espacio
-              </p>
+              <p className="text-xl text-gray-700">Descubre nuestro espacio</p>
             </div>
             <Gallery />
           </div>
@@ -91,7 +111,7 @@ function LandingPage() {
               <h2 className="text-5xl font-bold text-pink-400 mb-4">
                 Plano del Café
               </h2>
-              <div className="w-24 h-1 bg-gradient-to-r from-pink-300 to-blue-300 mx-auto mb-8"></div>
+              <div className="w-24 h-1 bg-gradient-to-r from-pink-300 to-blue-300 mx-auto mb-4"></div>
               <p className="text-xl text-gray-700">
                 Consulta la disponibilidad de mesas para familias
               </p>
@@ -116,11 +136,7 @@ function LandingPage() {
                 <h3 className="text-xl font-bold text-pink-400 mb-3">
                   Ubicación
                 </h3>
-                <p className="text-gray-700">
-                  Calle Principal 123
-                  <br />
-                  Centro, Ciudad
-                </p>
+                <p className="text-gray-700">{company?.address}</p>
               </div>
               <div className="text-center">
                 <div className="bg-gradient-to-r from-yellow-300 to-orange-300 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg">
@@ -130,7 +146,7 @@ function LandingPage() {
                   Teléfono
                 </h3>
                 <p className="text-gray-700">
-                  +34 123 456 789
+                  {company?.cellphone}
                   <br />
                   Lun-Dom: 9AM - 7PM
                 </p>
@@ -140,11 +156,7 @@ function LandingPage() {
                   <Mail className="w-8 h-8 text-white" />
                 </div>
                 <h3 className="text-xl font-bold text-blue-400 mb-3">Email</h3>
-                <p className="text-gray-700">
-                  info@wichiwi.com
-                  <br />
-                  reservas@wichiwi.com
-                </p>
+                <p className="text-gray-700">{company?.email}</p>
               </div>
             </div>
           </div>
@@ -157,7 +169,7 @@ function LandingPage() {
             <div className="mb-6 md:mb-0">
               <div className="flex items-center space-x-3 mb-3">
                 <Sparkles className="w-8 h-8" />
-                <span className="text-2xl font-bold">WichiWi Cafe Kids</span>
+                <span className="text-2xl font-bold">Wichi Wi Cafe Kids</span>
               </div>
               <p className="text-white/90">Un café para toda la familia</p>
             </div>
@@ -167,7 +179,7 @@ function LandingPage() {
               </p>
               <div className="flex space-x-6">
                 <a
-                  href="https://instagram.com"
+                  href={company?.instagram}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="hover:text-yellow-200 transition-colors transform hover:scale-110"
@@ -176,7 +188,7 @@ function LandingPage() {
                   <Instagram className="w-7 h-7" />
                 </a>
                 <a
-                  href="https://facebook.com"
+                  href={company?.facebook}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="hover:text-yellow-200 transition-colors transform hover:scale-110"
@@ -197,14 +209,27 @@ function LandingPage() {
             </div>
           </div>
           <div className="border-t border-white/30 mt-8 pt-8 text-center text-white/90">
-            <p>&copy; 2024 WichiWi Cafe Kids. Todos los derechos reservados.</p>
+            <p>&copy; 2025 WichiWi Cafe Kids. Todos los derechos reservados.</p>
           </div>
         </div>
       </footer>
 
-      <ReservationModal
+      <InformationModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
+        setFormOpen={setIsFormOpen}
+      />
+
+      <ReservationModal
+        isOpen={isFormOpen}
+        onClose={() => setIsFormOpen(false)}
+        setConfirmOpen={setIsConfirmOpen}
+        confirmShift={setConfirmShift}
+      />
+      <ConfirmationModal
+        isOpen={isConfirmOpen}
+        onClose={() => setIsConfirmOpen(false)}
+        shift={confirmShift}
       />
     </div>
   );

@@ -92,7 +92,7 @@ const routes = defineRoutes([
         label: "Turnos",
         method: "post",
         controller: ShiftController.create,
-        auth: true,
+        auth: false,
       },
       {
         path: "/shifts",
@@ -127,7 +127,7 @@ const routes = defineRoutes([
         label: "Turnos",
         method: "get",
         controller: ShiftController.getAvaliableShifts,
-        auth: true,
+        auth: false,
       },
       // Unidad de negocios
       {
@@ -187,7 +187,7 @@ const routes = defineRoutes([
         label: "Mesas",
         method: "get",
         controller: TableController.find,
-        auth: true,
+        auth: false,
       },
       {
         path: "/tables",
@@ -210,7 +210,7 @@ const routes = defineRoutes([
         label: "Configuraciones",
         method: "get",
         controller: ConfigController.find,
-        auth: true,
+        auth: false,
       },
       {
         path: "/configs",

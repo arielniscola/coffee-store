@@ -9,7 +9,7 @@ export interface IShift {
   companyCode?: string;
   date: string;
   description?: string;
-  tableNumber: number;
   phoneNumber: string;
   email: string;
+  peopleQty: number;
 }

@@ -17,7 +17,6 @@ import {
 } from "../../../services/shiftService";
 import toast, { Toaster } from "react-hot-toast";
 import moment from "moment";
-import UpdateModalConfirm from "../../../components/updateModalConfirm";
 import { IUnitBusiness } from "../../../interfaces/unitBusiness";
 import { getUnitBusiness } from "../../../services/unitBusinessService";
 import ModalDelete from "../../../components/DeleteModal";
@@ -37,7 +36,6 @@ function CalendarMenu() {
   const [selectedShift, setSelectedShift] = useState<IShift | undefined>();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [researchShifts, setResearchShifts] = useState<boolean>(false);
-  const [updateModalOpen, setUpdateModalOpen] = useState(false);
   const [selectDragShift, setSelectDragShift] = useState<IShift>();
   const [unitBusiness, setUnitBusiness] = useState<IUnitBusiness[]>([]);
   const [selectedUnitBusiness, setSelectedUnitBusiness] =
@@ -97,25 +95,6 @@ function CalendarMenu() {
     setIsModalOpen(true);
   };
 
-  const handleUpdateShift = (
-    shiftId: string,
-    date: string,
-    startTime: string,
-    endTime: string
-  ) => {
-    //buscar turno a modificar
-    const shiftFound = shifts.find((shift) => shift._id === shiftId);
-    //Modificar turno
-    if (shiftFound)
-      setSelectDragShift({
-        ...shiftFound,
-        date,
-        timeStart: startTime,
-        timeEnd: endTime,
-      });
-    setUpdateModalOpen(true);
-  };
-
   const handleSaveShift = async (shiftData?: Partial<IShift>) => {
     try {
       setLoading(true);
@@ -138,7 +117,6 @@ function CalendarMenu() {
     } catch (error) {
       notifyError(error ? error.toString() : "Error");
     } finally {
-      setUpdateModalOpen(false);
       setSelectDragShift(undefined);
       setLoading(false);
     }
@@ -216,7 +194,6 @@ function CalendarMenu() {
             onEditShift={handleEditShift}
             selectedDate={currentDate}
             onDateChange={setCurrentDate}
-            onUpdateShift={handleUpdateShift}
             selectedUN={selectedUnitBusiness}
             setSelectedUN={setSelectedUnitBusiness}
             unitBusiness={unitBusiness}
@@ -229,17 +206,10 @@ function CalendarMenu() {
             onClose={() => setIsModalOpen(false)}
             onSave={handleSaveShift}
             initialShift={selectedShift}
-            date={selectedDate}
+            date={currentDate}
             time={selectedStartTime}
             selectedUnitBusiness={selectedUnitBusiness?.code}
             loading={loading}
-          />
-
-          <UpdateModalConfirm
-            id="update-modal"
-            modalOpen={updateModalOpen}
-            setModalOpen={setUpdateModalOpen}
-            updateFn={handleSaveShift}
           />
         </div>
       </div>

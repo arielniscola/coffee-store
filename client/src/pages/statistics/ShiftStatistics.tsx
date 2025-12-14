@@ -45,40 +45,40 @@ const ShiftStatistics = () => {
   const formData = (data: any) => {
     const statsData = [
       {
-        title: "Clientes activos",
-        value: data.clients,
-        icon: Users,
-        color: "blue",
-      },
-      {
-        title: "Total Turnos",
+        title: "Total Turnos reservados",
         value: data.total,
         icon: Calendar,
         color: "blue",
       },
       {
-        title: "Turnos reservados",
-        value: data.paid,
+        title: "Turnos pendientes",
+        value: data.toConfirm,
+        icon: Calendar,
+        color: "yellow",
+      },
+      {
+        title: "Turnos confirmados",
+        value: data.confirmed,
         icon: Calendar,
         color: "green",
       },
       {
-        title: "Turnos confirmados",
-        value: data.paid,
+        title: "Turnos pagados",
+        value: data.confirmed,
         icon: Calendar,
-        color: "purple",
+        color: "green",
       },
       {
         title: "Turnos cancelados",
         value: data.cancelled,
         icon: Calendar,
-        color: "yellow",
+        color: "red",
       },
       {
-        title: "Turnos no pagados",
-        value: data.debt,
+        title: "Cantidad de Ocupaciones",
+        value: data.people,
         icon: Calendar,
-        color: "red",
+        color: "purple",
       },
     ];
 
@@ -111,30 +111,24 @@ const ShiftStatistics = () => {
 
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {dataShift.map((stat) => {
-                const Icon = stat.icon;
                 return (
                   <div
                     key={stat.title}
                     className="relative group bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow duration-300"
                   >
-                    <div className="flex items-center">
-                      <div
-                        className={`p-3 rounded-lg ${
-                          colorVariants[stat.color]
-                        }`}
+                    <div
+                      className={`bg-${stat.color}-50 rounded-lg p-4 border border-${stat.color}-100`}
+                    >
+                      <p
+                        className={`text-sm text-${stat.color}-600 font-medium`}
                       >
-                        <Icon className="h-6 w-6" />
-                      </div>
-                      <div className="ml-4">
-                        <h3 className="text-lg font-medium text-gray-900">
-                          {stat.title}
-                        </h3>
-                        <div className="flex items-baseline">
-                          <p className="text-2xl font-semibold text-gray-900">
-                            {stat.value}
-                          </p>
-                        </div>
-                      </div>
+                        {stat.title}
+                      </p>
+                      <p
+                        className={`text-3xl font-bold text-${stat.color}-800 mt-2`}
+                      >
+                        {stat.value}
+                      </p>
                     </div>
 
                     <div className="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-gray-200 to-transparent transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300" />
