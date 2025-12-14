@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Sidebar } from "../../partials/sidebar";
 import Header from "../../partials/headers";
 
-import { Calendar, LucideProps, Users } from "lucide-react";
+import { Calendar, LucideProps } from "lucide-react";
 import MonthYearPicker from "./yearMonthPicker";
 import { getStatistics } from "../../services/shiftService";
 import moment from "moment";
@@ -15,15 +15,6 @@ interface DataShift {
   >;
   color: string;
 }
-
-const colorVariants: any = {
-  blue: "bg-blue-50 text-blue-600",
-  yellow: "bg-yellow-50 text-yellow-600",
-  green: "bg-green-50 text-green-600",
-  purple: "bg-purple-50 text-purple-600",
-  red: "bg-red-50 text-red-600",
-  indigo: "bg-indigo-50 text-indigo-600",
-};
 
 const ShiftStatistics = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);

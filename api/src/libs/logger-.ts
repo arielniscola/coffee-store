@@ -10,7 +10,7 @@ import {
   LoggerOptions,
   transports,
 } from "winston";
-import { ShifManagement } from "..";
+import { Coffeshop } from "..";
 import path from "path";
 import fs from "fs";
 import moment from "moment";
@@ -120,7 +120,7 @@ export class Log {
     // Obtener listado de carpetas a partir del rango de fechas
     const folderList = this.getFolderList(startDate, endDate);
     // Path de Logs
-    const LOG_PATH = ShifManagement.get("logs.path") as string;
+    const LOG_PATH = Coffeshop.get("logs.path") as string;
     // En base a las fechas proveidas, generar listado de carpetas que deberia leerse
     let folders: FolderList = {};
     for (const folderPath of folderList) {
@@ -236,7 +236,7 @@ export class Log {
       return filePath;
     }
     // Path de Logs
-    const LOG_PATH = ShifManagement.get("logs.path") as string;
+    const LOG_PATH = Coffeshop.get("logs.path") as string;
     // Si no, tanteamos con el relativo y el LOG_PATH
     filePath = path.join(LOG_PATH, `${filePath}.log`);
     // Verificar si existe
@@ -277,7 +277,7 @@ export class Log {
     // Obtener listado de carpetas a partir del rango de fechas
     const folderList = this.getFolderList(startDate, endDate);
     // Path de Logs
-    let LOG_PATH = ShifManagement.get("logs.path") as string;
+    let LOG_PATH = Coffeshop.get("logs.path") as string;
     // En base a las fechas proveidas, generar listado de carpetas que deberia leerse
     let pathsToSearch: string[] = [];
     for (const folderPath of folderList) {
@@ -363,17 +363,17 @@ export class Log {
     /**
      * Path de Logs
      */
-    const LOG_PATH = ShifManagement.get("logs.path") as string;
+    const LOG_PATH = Coffeshop.get("logs.path") as string;
 
     /**
      * Frecuencia de Logs
      */
-    const LOG_FREQUENCY = ShifManagement.get("logs.frequency") as string;
+    const LOG_FREQUENCY = Coffeshop.get("logs.frequency") as string;
 
     /**
      * Prefijo de Logs
      */
-    const LOG_PREFIX = ShifManagement.get("logs.prefix") as string;
+    const LOG_PREFIX = Coffeshop.get("logs.prefix") as string;
 
     /**
      * Opciones de Transporte de logger: Archivo de .info
