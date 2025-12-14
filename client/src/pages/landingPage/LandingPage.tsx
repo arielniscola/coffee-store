@@ -46,7 +46,7 @@ function LandingPage() {
         <nav className="container mx-auto px-6 py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <img className="w-20 h-20" src={"/public/images/logo3.png"}></img>
+              <img className="w-20 h-20" src={"/images/logo3.png"}></img>
               <h1 className="text-3xl font-bold tracking-tight">
                 Wichi Wi Cafe Kids
               </h1>
@@ -59,7 +59,7 @@ function LandingPage() {
       <main>
         <section
           className="relative h-[700px] bg-cover bg-center bg-no-repeat"
-          style={{ backgroundImage: "url('/public/images/fondo3.png')" }}
+          style={{ backgroundImage: "url('/images/fondo3.png')" }}
         >
           <div className="absolute inset-0 bg-gradient-to-b from-black/30 to-black/10 flex items-center justify-center">
             <div className="text-center text-white px-6">

@@ -1,26 +1,26 @@
 const images = [
   {
-    url: "public/images/galeria1.jpeg",
+    url: "/images/galeria1.jpeg",
     alt: "",
   },
   {
-    url: "public/images/galeria2.jpeg",
+    url: "/images/galeria2.jpeg",
     alt: "",
   },
   {
-    url: "public/images/galeria3.jpeg",
+    url: "/images/galeria3.jpeg",
     alt: "",
   },
   {
-    url: "public/images/galeria4.jpeg",
+    url: "/images/galeria4.jpeg",
     alt: "",
   },
   {
-    url: "public/images/galeria5.jpeg",
+    url: "/images/galeria5.jpeg",
     alt: "",
   },
   {
-    url: "public/images/galeria6.jpeg",
+    url: "/images/galeria6.jpeg",
     alt: "",
   },
 ];

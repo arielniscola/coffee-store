@@ -19,7 +19,7 @@ const Login = () => {
     <div
       className="min-h-screen flex items-center justify-center p-4 relative"
       style={{
-        backgroundImage: "url(/public/images/login-bg.jpeg)",
+        backgroundImage: "url(/images/login-bg.jpeg)",
         backgroundSize: "cover",
         backgroundPosition: "center",
         backgroundRepeat: "no-repeat",
