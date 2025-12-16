@@ -8,6 +8,7 @@ import {
   Instagram,
   Facebook,
   Twitter,
+  Landmark,
 } from "lucide-react";
 import { ICompany } from "../../interfaces/company";
 import { getCompany, updateCompany } from "../../services/company";
@@ -32,6 +33,9 @@ export function CompanyProfile() {
     facebook: "",
     twitter: "",
     email: "",
+    alias: "",
+    accountName: "",
+    cuit: "",
   });
 
   useEffect(() => {
@@ -81,8 +85,8 @@ export function CompanyProfile() {
 
   return (
     <div className="max-w-4xl">
-      <div className="bg-white rounded-lg border border-gray-200 p-8">
-        <div className="flex items-center gap-3 mb-8 pb-6 border-b border-gray-200">
+      <div className="bg-white rounded-lg border border-gray-200 p-4">
+        <div className="flex items-center gap-3 mb-6 pb-3 border-b border-gray-200">
           <Building2 className="w-8 h-8 text-blue-600" />
           <h2 className="text-3xl font-bold text-gray-900">
             Perfil de la Compañía
@@ -197,6 +201,45 @@ export function CompanyProfile() {
                 value={formData.twitter}
                 onChange={(e) =>
                   setFormData({ ...formData, twitter: e.target.value })
+                }
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                <Landmark className="w-4 h-4" /> CUIT
+              </label>
+              <input
+                type="text"
+                value={formData.cuit}
+                onChange={(e) =>
+                  setFormData({ ...formData, cuit: e.target.value })
+                }
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                <Landmark className="w-4 h-4" /> Nombre de la Cuenta
+              </label>
+              <input
+                type="text"
+                value={formData.accountName}
+                onChange={(e) =>
+                  setFormData({ ...formData, accountName: e.target.value })
+                }
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                <Landmark className="w-4 h-4" /> Alias
+              </label>
+              <input
+                type="text"
+                value={formData.alias}
+                onChange={(e) =>
+                  setFormData({ ...formData, alias: e.target.value })
                 }
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />

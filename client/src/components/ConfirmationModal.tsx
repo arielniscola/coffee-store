@@ -1,16 +1,19 @@
 import { Phone, AlertCircle, Check } from "lucide-react";
 import { IShift } from "../interfaces/shift";
+import { ICompany } from "../interfaces/company";
 
 interface informationModalProps {
   isOpen: boolean;
   onClose: () => void;
   shift: IShift | undefined;
+  company: ICompany | undefined;
 }
 
 export default function ConfirmationModal({
   isOpen,
   onClose,
   shift,
+  company,
 }: informationModalProps) {
   if (!isOpen) return null;
 
@@ -42,15 +45,9 @@ export default function ConfirmationModal({
                   ⚠️ Importante: Confirma tu Reserva
                 </h3>
                 <p className="text-sm text-blue-800 mb-3">
-                  Para confirmar tu turno, necesitas realizar una seña del{" "}
-                  <span className="font-bold">30%</span> del consumo mínimo.
+                  Para confirmar tu turno, necesitas realizar una seña de{" "}
+                  <span className="font-bold">$10.000</span> por niño.
                 </p>
-                <div className="bg-white rounded-lg p-3 mb-3">
-                  <p className="text-xs text-gray-600 mb-2">
-                    Monto de seña estimado:
-                  </p>
-                  <p className="text-2xl font-bold text-blue-900">$5.000 ARS</p>
-                </div>
               </div>
             </div>
           </div>
@@ -60,14 +57,15 @@ export default function ConfirmationModal({
             </h3>
             <div className="space-y-1 text-sm text-purple-800">
               <p>
-                <span className="font-semibold">CVU/Alias:</span> CAFE.RESERVAS
+                <span className="font-semibold">CVU/Alias:</span>{" "}
+                {company?.alias}
               </p>
               <p>
-                <span className="font-semibold">CUIT:</span> 20-12345678-9
+                <span className="font-semibold">CUIT:</span> {company?.cuit}
               </p>
               <p>
-                <span className="font-semibold">Titular:</span> Café Reservas
-                S.A.
+                <span className="font-semibold">Titular:</span>{" "}
+                {company?.accountName}
               </p>
             </div>
           </div>
@@ -86,13 +84,13 @@ export default function ConfirmationModal({
                   Realiza la transferencia y envía el comprobante por WhatsApp:
                 </p>
                 <a
-                  href="https://wa.me/2616271352?text=Hola Anita la arañita"
+                  href={`https://wa.me/${company?.cellphone}?text=Hola, Envío confirmación de la reserva a nombre de ${shift?.client}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-3 rounded-lg font-semibold transition-all shadow-md hover:shadow-lg"
                 >
                   <Phone size={18} />
-                  +54 299 123-4567
+                  {company?.cellphone}
                 </a>
               </div>
             </div>

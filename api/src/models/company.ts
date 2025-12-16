@@ -12,6 +12,9 @@ export interface ICompany {
   instagram?: string;
   facebook?: string;
   twitter?: string;
+  alias?: string;
+  cuit?: string;
+  accountName?: string;
 }
 
 const CompanySchema = createSchema<ICompany>({
@@ -57,6 +60,18 @@ const CompanySchema = createSchema<ICompany>({
     required: false,
   },
   twitter: {
+    type: String,
+    required: false,
+  },
+  alias: {
+    type: String,
+    required: false,
+  },
+  accountName: {
+    type: String,
+    required: false,
+  },
+  cuit: {
     type: String,
     required: false,
   },

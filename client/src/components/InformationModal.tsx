@@ -88,8 +88,8 @@ export default function InformationModal({
                 Confirmación
               </h3>
               <p className="text-sm text-orange-800">
-                Recibirás un email y SMS de confirmación con los detalles de tu
-                reserva
+                Para la confirmación deberas enviar comprobante de reserva por
+                whatsapp
               </p>
             </div>
           </div>

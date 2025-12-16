@@ -58,8 +58,8 @@ function LandingPage() {
 
       <main>
         <section
-          className="relative h-[700px] bg-cover bg-center bg-no-repeat"
-          style={{ backgroundImage: "url('/images/fondo3.png')" }}
+          className="relative h-[700px] bg-auto bg-center bg-repeat"
+          style={{ backgroundImage: "url('/images/fondo2.png')" }}
         >
           <div className="absolute inset-0 bg-gradient-to-b from-black/30 to-black/10 flex items-center justify-center">
             <div className="text-center text-white px-6">
@@ -86,10 +86,14 @@ function LandingPage() {
             </h2>
             <div className="w-24 h-1 bg-gradient-to-r from-pink-300 to-blue-300 mx-auto mb-8"></div>
             <p className="text-xl text-gray-700 max-w-3xl mx-auto leading-relaxed">
-              WichiWi es un café especial diseñado para familias con niños.
-              Ofrecemos un espacio acogedor y seguro donde los pequeños pueden
-              disfrutar de deliciosas bebidas y comidas mientras los padres se
-              relajan. ¡Cada visita es una nueva aventura!
+              Wichi Wi Café Kids es una cafetería, creado para que las familias
+              puedan compartir tiempo de calidad, mientras los niños juegan,
+              aprenden y se divierten en un entorno seguro y diseñado
+              especialmente para ellos. Contamos con juegos para niños de 0 a 6
+              años y juegos de mesas para los más grandes.
+              <br />
+              <br />
+              <p>*TU PAUSA, SU DIVERSIÓN *</p>
             </p>
           </div>
         </section>
@@ -145,7 +149,7 @@ function LandingPage() {
                 <h3 className="text-xl font-bold text-orange-400 mb-3">
                   Teléfono
                 </h3>
-                <p className="text-gray-700">{company?.cellphone}</p>
+                <p className="text-gray-500">{company?.cellphone}</p>
               </div>
               <div className="text-center">
                 <div className="bg-gradient-to-r from-blue-300 to-blue-400 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg">
@@ -174,33 +178,39 @@ function LandingPage() {
                 Síguenos en redes sociales
               </p>
               <div className="flex space-x-6">
-                <a
-                  href={company?.instagram}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:text-yellow-200 transition-colors transform hover:scale-110"
-                  aria-label="Instagram"
-                >
-                  <Instagram className="w-7 h-7" />
-                </a>
-                <a
-                  href={company?.facebook}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:text-yellow-200 transition-colors transform hover:scale-110"
-                  aria-label="Facebook"
-                >
-                  <Facebook className="w-7 h-7" />
-                </a>
-                <a
-                  href="https://twitter.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:text-yellow-200 transition-colors transform hover:scale-110"
-                  aria-label="Twitter"
-                >
-                  <Twitter className="w-7 h-7" />
-                </a>
+                {company?.instagram && (
+                  <a
+                    href={company?.instagram}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:text-yellow-200 transition-colors transform hover:scale-110"
+                    aria-label="Instagram"
+                  >
+                    <Instagram className="w-7 h-7" />
+                  </a>
+                )}
+                {company?.facebook && (
+                  <a
+                    href={company?.facebook}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:text-yellow-200 transition-colors transform hover:scale-110"
+                    aria-label="Facebook"
+                  >
+                    <Facebook className="w-7 h-7" />
+                  </a>
+                )}
+                {company?.twitter && (
+                  <a
+                    href={company?.twitter}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:text-yellow-200 transition-colors transform hover:scale-110"
+                    aria-label="Twitter"
+                  >
+                    <Twitter className="w-7 h-7" />
+                  </a>
+                )}
               </div>
             </div>
           </div>
@@ -226,6 +236,7 @@ function LandingPage() {
         isOpen={isConfirmOpen}
         onClose={() => setIsConfirmOpen(false)}
         shift={confirmShift}
+        company={company}
       />
     </div>
   );

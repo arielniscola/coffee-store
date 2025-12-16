@@ -11,4 +11,7 @@ export interface ICompany {
   instagram?: string;
   facebook?: string;
   twitter?: string;
+  alias?: string;
+  cuit?: string;
+  accountName?: string;
 }

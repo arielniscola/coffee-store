@@ -77,7 +77,7 @@ const routes = defineRoutes([
         label: "Compañia",
         method: "get",
         controller: CompanyController.find,
-        auth: true,
+        auth: false,
       },
       {
         path: "/company",
