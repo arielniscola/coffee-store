@@ -272,9 +272,9 @@ export class ShiftController {
     return parseInt(timeSplit[0]) * 60 + parseInt(timeSplit[1]);
   }
   private static parseMinutesToTime(time: number): string {
-    const hora = time / 60;
+    let hora = time / 60;
     const min = time % 60;
-
+    hora = Math.floor(hora);
     return `${hora}:${min % 10 > 0 ? min : min + "0"}`;
   }
 }

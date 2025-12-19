@@ -43,13 +43,13 @@ function LandingPage() {
   return (
     <div className="min-h-screen bg-blue-50">
       <header className="bg-gradient-to-r from-pink-300 to-blue-300 text-white shadow-lg">
-        <nav className="container mx-auto px-6 py-6">
+        <nav className="container mx-auto px-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <img className="w-20 h-20" src={"/images/logo3.png"}></img>
-              <h1 className="text-3xl font-bold tracking-tight">
-                Wichi Wi Cafe Kids
-              </h1>
+              <img
+                className="w-[115px] h-[110px]"
+                src={"/images/logo3.png"}
+              ></img>
             </div>
             <ReservationButton onClick={() => setIsModalOpen(true)} />
           </div>
@@ -58,7 +58,7 @@ function LandingPage() {
 
       <main>
         <section
-          className="relative h-[700px] bg-auto bg-center bg-repeat"
+          className="relative h-[800px] bg-cover md:bg-contain lg:bg-cover bg-center bg-no-repeat"
           style={{ backgroundImage: "url('/images/fondo2.png')" }}
         >
           <div className="absolute inset-0 bg-gradient-to-b from-black/30 to-black/10 flex items-center justify-center">
@@ -82,7 +82,7 @@ function LandingPage() {
         <section className="container mx-auto px-6 py-20">
           <div className="text-center mb-10">
             <h2 className="text-5xl font-bold text-pink-400 mb-4">
-              Nuestra Historia
+              ¿Quiénes Somos?
             </h2>
             <div className="w-24 h-1 bg-gradient-to-r from-pink-300 to-blue-300 mx-auto mb-8"></div>
             <p className="text-xl text-gray-700 max-w-3xl mx-auto leading-relaxed">
@@ -109,6 +109,64 @@ function LandingPage() {
           </div>
         </section>
 
+        <section className="bg-gradient-to-b from-blue-50 to-pink-50 py-20">
+          <div className="container mx-auto px-6">
+            <div className="text-center mb-10">
+              <h2 className="text-5xl font-bold text-blue-400 mb-4">
+                Nuestra Historia
+              </h2>
+              <div className="w-24 h-1 bg-gradient-to-r from-pink-300 to-blue-300 mx-auto mb-8"></div>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-8 items-center mb-12">
+              <div className="px-4">
+                <p className="text-lg mb-4 text-justify">
+                  Desde 1985, Café Aromático ha sido el corazón de nuestra
+                  comunidad. Comenzamos como un pequeño local familiar con el
+                  sueño de compartir el auténtico sabor del café artesanal.
+                </p>
+                <p className="text-lg text-justify">
+                  Don Roberto, nuestro fundador, viajó por toda Sudamérica
+                  seleccionando los mejores granos de café, estableciendo
+                  relaciones directas con productores locales que comparten
+                  nuestra pasión por la calidad.
+                </p>
+              </div>
+              <div className="w-full h-80 bg-gray-300 rounded-lg shadow-lg overflow-hidden flex items-center justify-center text-gray-600">
+                <span>📷 Imagen 1: Fachada histórica del café</span>
+                <img
+                  src="tu-imagen-1.jpg"
+                  alt="Historia del café"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-8 items-center">
+              <div className="w-full h-80 bg-gray-300 rounded-lg shadow-lg overflow-hidden flex items-center justify-center text-gray-600 md:order-first">
+                <span>📷 Imagen 2: Interior acogedor</span>
+                <img
+                  src="tu-imagen-2.jpg"
+                  alt="Interior del café"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <div className="px-4 md:order-last">
+                <p className="text-lg mb-4 text-justify">
+                  Hoy, casi 40 años después, seguimos manteniendo esa misma
+                  dedicación. Cada taza es preparada con el mismo amor y cuidado
+                  que el primer día, utilizando métodos tradicionales combinados
+                  con las mejores prácticas modernas.
+                </p>
+                <p className="text-lg text-justify">
+                  Nos enorgullece ser un lugar donde las familias se reúnen, los
+                  amigos se encuentran y se crean nuevos recuerdos cada día.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
         <section className="bg-gradient-to-b from-pink-50 to-white py-20">
           <div className="container mx-auto px-6">
             <div className="text-center mb-16">
@@ -123,41 +181,43 @@ function LandingPage() {
             <FloorPlan />
           </div>
         </section>
-
-        <section className="bg-gradient-to-b from-blue-50 to-pink-50 py-20">
-          <div className="container mx-auto px-6">
-            <div className="text-center mb-16">
+        <section className="bg-white py-16 px-4">
+          <div className="max-w-6xl mx-auto">
+            <div className="text-center mb-10">
               <h2 className="text-5xl font-bold text-blue-400 mb-4">
-                Visítanos
+                Visitanos
               </h2>
               <div className="w-24 h-1 bg-gradient-to-r from-pink-300 to-blue-300 mx-auto mb-8"></div>
             </div>
-            <div className="grid md:grid-cols-3 gap-12 max-w-5xl mx-auto">
-              <div className="text-center">
-                <div className="bg-gradient-to-r from-pink-300 to-pink-400 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg">
-                  <MapPin className="w-8 h-8 text-white" />
+
+            <div className="text-center mb-8">
+              <p className="text-lg my-2 flex items-center justify-center gap-3">
+                <div className="bg-gradient-to-r from-pink-300 to-pink-400 w-8 h-8 rounded-full flex items-center justify-center shadow-lg flex-shrink-0">
+                  <MapPin className="w-4 h-4 text-white" />
                 </div>
-                <h3 className="text-xl font-bold text-pink-400 mb-3">
-                  Ubicación
-                </h3>
-                <p className="text-gray-700">{company?.address}</p>
-              </div>
-              <div className="text-center">
-                <div className="bg-gradient-to-r from-yellow-300 to-orange-300 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg">
-                  <Phone className="w-8 h-8 text-white" />
+                23, Neuquén Capital
+              </p>
+              <p className="text-lg my-2 flex items-center justify-center gap-3">
+                <div className="bg-gradient-to-r from-yellow-300 to-orange-300 w-8 h-8 rounded-full flex items-center justify-center shadow-lg flex-shrink-0">
+                  <Phone className="w-4 h-4 text-white" />
                 </div>
-                <h3 className="text-xl font-bold text-orange-400 mb-3">
-                  Teléfono
-                </h3>
-                <p className="text-gray-500">{company?.cellphone}</p>
-              </div>
-              <div className="text-center">
-                <div className="bg-gradient-to-r from-blue-300 to-blue-400 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg">
-                  <Mail className="w-8 h-8 text-white" />
+                {company?.cellphone}
+              </p>
+              <p className="text-lg my-2 flex items-center justify-center gap-3">
+                <div className="bg-gradient-to-r from-blue-300 to-blue-400 w-8 h-8 rounded-full flex items-center justify-center shadow-lg flex-shrink-0">
+                  <Mail className="w-4 h-4 text-white" />
                 </div>
-                <h3 className="text-xl font-bold text-blue-400 mb-3">Email</h3>
-                <p className="text-gray-700">{company?.email}</p>
-              </div>
+                {company?.email}
+              </p>
+            </div>
+            <div className="max-w-4xl mx-auto h-96 rounded-lg shadow-lg overflow-hidden">
+              <iframe
+                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d837.0296991716068!2d-68.79748722231801!3d-32.9478728312124!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x967e0d346ad73d79%3A0xe2071bf4f9de845a!2zV2ljaMOtIHdp!5e0!3m2!1ses-419!2sar!4v1766065204856!5m2!1ses-419!2sar"
+                className="w-full h-full border-0"
+                allowFullScreen={false}
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+              ></iframe>
             </div>
           </div>
         </section>
