@@ -118,49 +118,47 @@ function LandingPage() {
               <div className="w-24 h-1 bg-gradient-to-r from-pink-300 to-blue-300 mx-auto mb-8"></div>
             </div>
 
-            <div className="grid md:grid-cols-2 gap-8 items-center mb-12">
+            <div className="grid md:grid-cols-2 gap-8 items-center mb-8">
               <div className="px-4">
                 <p className="text-lg mb-4 text-justify">
-                  Desde 1985, Café Aromático ha sido el corazón de nuestra
-                  comunidad. Comenzamos como un pequeño local familiar con el
-                  sueño de compartir el auténtico sabor del café artesanal.
-                </p>
-                <p className="text-lg text-justify">
-                  Don Roberto, nuestro fundador, viajó por toda Sudamérica
-                  seleccionando los mejores granos de café, estableciendo
-                  relaciones directas con productores locales que comparten
-                  nuestra pasión por la calidad.
+                  El presente proyecto surge de la iniciativa de dos familias
+                  amigas —Ludmila y Carlos, padres de Lupe y Paz; y Yamila y
+                  Alberto, padres de Roma y Alma— quienes detectamos la
+                  necesidad de contar en la provincia de Mendoza con un espacio
+                  donde niños y adultos puedan disfrutar simultáneamente.
                 </p>
               </div>
-              <div className="w-full h-80 bg-gray-300 rounded-lg shadow-lg overflow-hidden flex items-center justify-center text-gray-600">
-                <span>📷 Imagen 1: Fachada histórica del café</span>
+              <div className="w-full h-[34rem] bg-gray-300 rounded-lg shadow-lg overflow-hidden shadow-lg">
                 <img
-                  src="tu-imagen-1.jpg"
+                  src="/images/historia1.jpeg"
                   alt="Historia del café"
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover object-[center_25%]"
                 />
               </div>
             </div>
 
             <div className="grid md:grid-cols-2 gap-8 items-center">
-              <div className="w-full h-80 bg-gray-300 rounded-lg shadow-lg overflow-hidden flex items-center justify-center text-gray-600 md:order-first">
-                <span>📷 Imagen 2: Interior acogedor</span>
+              <div className="w-full h-[34rem] bg-gray-300 rounded-lg shadow-lg overflow-hidden shadow-lg">
                 <img
-                  src="tu-imagen-2.jpg"
-                  alt="Interior del café"
-                  className="w-full h-full object-cover"
+                  src="/images/historia2.jpeg"
+                  alt="Historia del café"
+                  className="w-full h-full object-cover object-[center_30%]"
                 />
               </div>
               <div className="px-4 md:order-last">
                 <p className="text-lg mb-4 text-justify">
-                  Hoy, casi 40 años después, seguimos manteniendo esa misma
-                  dedicación. Cada taza es preparada con el mismo amor y cuidado
-                  que el primer día, utilizando métodos tradicionales combinados
-                  con las mejores prácticas modernas.
+                  La idea nació a partir de nuestra experiencia como padres, al
+                  buscar un lugar que combinara un entorno seguro y estimulante
+                  para los niños con un ambiente cómodo y relajado para los
+                  adultos.
                 </p>
                 <p className="text-lg text-justify">
-                  Nos enorgullece ser un lugar donde las familias se reúnen, los
-                  amigos se encuentran y se crean nuevos recuerdos cada día.
+                  Observamos que la oferta local de este tipo de espacios es
+                  limitada, lo que nos motivó a desarrollar una propuesta
+                  innovadora: la creación del primer Café Kids de la provincia,
+                  integrando juegos didácticos y recreativos con un área de
+                  cafetería, en un mismo espacio diseñado para el disfrute de
+                  toda la familia.
                 </p>
               </div>
             </div>
@@ -195,7 +193,7 @@ function LandingPage() {
                 <div className="bg-gradient-to-r from-pink-300 to-pink-400 w-8 h-8 rounded-full flex items-center justify-center shadow-lg flex-shrink-0">
                   <MapPin className="w-4 h-4 text-white" />
                 </div>
-                23, Neuquén Capital
+                {company?.address}
               </p>
               <p className="text-lg my-2 flex items-center justify-center gap-3">
                 <div className="bg-gradient-to-r from-yellow-300 to-orange-300 w-8 h-8 rounded-full flex items-center justify-center shadow-lg flex-shrink-0">
