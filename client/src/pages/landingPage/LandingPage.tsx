@@ -59,7 +59,10 @@ function LandingPage() {
       <main>
         <section
           className="relative h-[800px] bg-cover md:bg-contain lg:bg-cover bg-center bg-no-repeat"
-          style={{ backgroundImage: "url('/images/fondo2.png')" }}
+          style={{
+            backgroundImage: "url('/images/fondooo.png')",
+            backgroundSize: "95%",
+          }}
         >
           <div className="absolute inset-0 bg-gradient-to-b from-black/30 to-black/10 flex items-center justify-center">
             <div className="text-center text-white px-6">
