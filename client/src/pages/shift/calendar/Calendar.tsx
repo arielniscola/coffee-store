@@ -30,19 +30,24 @@ export default function Calendar({
   selectedDate,
   tables,
 }: CalendarProps) {
-  const [slotCount, setSlotCount] = useState<number>(0);
-  const [initialTimeSlot, setInitialTimeSlot] = useState<number>(12);
+  const [timeSlots, setTimeSlots] = useState<string[]>([]);
   const [totalCapacity, setTotalCapacity] = useState<number>(0);
   useEffect(() => {
     loadSettings();
     calculateCapacity();
   }, [selectedDate, tables]);
 
+  const normalizeTime = (time: string) => {
+    const [h, m] = time.split(":");
+    return `${h.padStart(2, "0")}:${(m || "00").padStart(2, "0")}`;
+  };
+
   const reservesSchedule = () => {
     let schedule: { time: string; shifts: IShift[] }[] = [];
-    TIME_SLOTS.map((t) => schedule.push({ time: t, shifts: [] }));
+    timeSlots.map((t) => schedule.push({ time: t, shifts: [] }));
     for (const reser of shifts) {
-      const i = schedule.findIndex((s) => s.time == reser.timeStart);
+      const normalizedTime = normalizeTime(reser.timeStart);
+      const i = schedule.findIndex((s) => s.time == normalizedTime);
 
       if (i >= 0) schedule[i].shifts.push(reser);
     }
@@ -100,34 +105,62 @@ export default function Calendar({
   };
 
   const getTimeSlots = (data: IConfig[]) => {
-    let day = moment(selectedDate).format("dddd");
+    // Usar locale inglés para que coincida con la configuración (scheduleDayMonday, etc.)
+    let day = moment(selectedDate).locale("en").format("dddd");
     day = day.charAt(0).toUpperCase() + day.slice(1);
 
-    const timeSchedule = data.find((conf) => conf.code == `scheduleDay${day}`)
+    const configCode = `scheduleDay${day}`;
+    const timeSchedule = data.find((conf) => conf.code == configCode)
       ?.value as string;
-    /** Validamos cuantos horarios contiene */
-    const scheduleSlot = timeSchedule.trim().split(",");
 
-    const initialTime = scheduleSlot[0].split("-")[0];
-    const iniValue = initialTime.split(":");
-    const endTime =
-      scheduleSlot.length == 2
-        ? scheduleSlot[1].split("-")[1]
-        : scheduleSlot[0].split("-")[1];
-    const endValue = endTime.split(":");
-    const durationShift = data.find((conf) => conf.code == "durationShift")
-      ?.value as number;
-    let initialTimeMinutes = parseInt(iniValue[0]) * 60 + parseInt(iniValue[1]);
-    let endTimeMinutes = parseInt(endValue[0]) * 60 + parseInt(endValue[1]);
-    let totalSlots = (endTimeMinutes - initialTimeMinutes) / durationShift;
-    setInitialTimeSlot(parseInt(iniValue[0]));
-    setSlotCount(totalSlots * (durationShift / 60));
+    if (!timeSchedule) {
+      setTimeSlots([]);
+      return;
+    }
+
+    const durationShiftValue = data.find((conf) => conf.code == "durationShift")?.value;
+    const durationShift = Number(durationShiftValue);
+
+    if (!durationShift) {
+      setTimeSlots([]);
+      return;
+    }
+
+    const slots: string[] = [];
+    const scheduleRanges = timeSchedule.trim().split(",");
+
+    for (const range of scheduleRanges) {
+      const parts = range.trim().split("-");
+      if (parts.length < 2) {
+        console.warn(`Formato de horario incorrecto: ${range}`);
+        continue;
+      }
+
+      const [startTime, endTime] = parts;
+      const startParts = startTime.split(":");
+      const endParts = endTime.split(":");
+
+      if (startParts.length < 2 || endParts.length < 2) {
+        console.warn(`Formato de hora incorrecto: ${range}`);
+        continue;
+      }
+
+      const [startH, startM] = startParts.map(Number);
+      const [endH, endM] = endParts.map(Number);
+
+      let currentMinutes = startH * 60 + (startM || 0);
+      const endMinutes = endH * 60 + (endM || 0);
+
+      while (currentMinutes < endMinutes) {
+        const h = Math.floor(currentMinutes / 60);
+        const m = currentMinutes % 60;
+        slots.push(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
+        currentMinutes += durationShift;
+      }
+    }
+
+    setTimeSlots(slots);
   };
-  // Calcular slots de tiempo
-  const TIME_SLOTS = Array.from(
-    { length: slotCount },
-    (_, i) => `${String(i + initialTimeSlot).padStart(2, "0")}:00`
-  );
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
@@ -215,10 +248,17 @@ export default function Calendar({
                                   {reserva.phoneNumber}
                                 </div>
                                 <div className="flex items-center gap-1 text-white/90 text-xs">
-                                  <span className="font-semibold">
-                                    {reserva.description || ""}
-                                  </span>
+                                  <Users className="w-3 h-3" />
+                                  {reserva.adultsQty ?? reserva.peopleQty ?? 0} adulto{(reserva.adultsQty ?? reserva.peopleQty ?? 0) !== 1 ? 's' : ''}
+                                  {(reserva.childrenQty ?? 0) > 0 && `, ${reserva.childrenQty} niño${reserva.childrenQty !== 1 ? 's' : ''}`}
                                 </div>
+                                {reserva.description && (
+                                  <div className="flex items-center gap-1 text-white/90 text-xs">
+                                    <span className="font-semibold">
+                                      {reserva.description}
+                                    </span>
+                                  </div>
+                                )}
                               </div>
                             ))}
                           </div>

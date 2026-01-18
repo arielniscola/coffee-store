@@ -42,7 +42,7 @@ export function ReservationList() {
     try {
       setLoading(true);
       const data = (await getShifts(
-        currentDate.toISOString(),
+        format(currentDate, "yyyy-MM-dd"),
         "LOC1"
       )) as IShift[];
       setReservations(data);
@@ -275,7 +275,10 @@ export function ReservationList() {
                   </div>
                   <div className="flex items-center gap-2 text-gray-700">
                     <Users className="w-4 h-4" />
-                    <span className="text-sm">2 personas</span>
+                    <span className="text-sm">
+                      {reservation.adultsQty ?? reservation.peopleQty ?? 0} adulto{(reservation.adultsQty ?? reservation.peopleQty ?? 0) !== 1 ? 's' : ''}
+                      {(reservation.childrenQty ?? 0) > 0 && `, ${reservation.childrenQty} niño${reservation.childrenQty !== 1 ? 's' : ''}`}
+                    </span>
                   </div>
                 </div>
 

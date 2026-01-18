@@ -66,10 +66,22 @@ const ShiftStatistics = () => {
         color: "red",
       },
       {
-        title: "Cantidad de Ocupaciones",
+        title: "Total de Personas",
         value: data.people,
         icon: Calendar,
         color: "purple",
+      },
+      {
+        title: "Adultos",
+        value: data.adults,
+        icon: Calendar,
+        color: "indigo",
+      },
+      {
+        title: "Niños",
+        value: data.children,
+        icon: Calendar,
+        color: "pink",
       },
     ];
 

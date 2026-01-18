@@ -46,6 +46,8 @@ export default function ReservationModal({
     phoneNumber: "",
     email: "",
     peopleQty: 0,
+    adultsQty: 1,
+    childrenQty: 0,
   });
 
   const [loading, setLoading] = useState(false);
@@ -94,6 +96,8 @@ export default function ReservationModal({
           phoneNumber: "",
           email: "",
           peopleQty: 0,
+          adultsQty: 1,
+          childrenQty: 0,
         });
         onClose();
         setConfirmOpen(true);
@@ -228,7 +232,7 @@ export default function ReservationModal({
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Número de Personas *
+                Adultos *
               </label>
               <div className="relative">
                 <Users
@@ -240,13 +244,42 @@ export default function ReservationModal({
                   min="1"
                   max="20"
                   required
-                  value={formData.peopleQty}
-                  onChange={(e) =>
+                  value={formData.adultsQty}
+                  onChange={(e) => {
+                    const adultsQty = parseInt(e.target.value) || 0;
                     setFormData({
                       ...formData,
-                      peopleQty: parseInt(e.target.value),
-                    })
-                  }
+                      adultsQty,
+                      peopleQty: adultsQty + formData.childrenQty,
+                    });
+                  }}
+                  className="w-full pl-10 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Niños
+              </label>
+              <div className="relative">
+                <Users
+                  size={18}
+                  className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+                />
+                <input
+                  type="number"
+                  min="0"
+                  max="20"
+                  value={formData.childrenQty}
+                  onChange={(e) => {
+                    const childrenQty = parseInt(e.target.value) || 0;
+                    setFormData({
+                      ...formData,
+                      childrenQty,
+                      peopleQty: formData.adultsQty + childrenQty,
+                    });
+                  }}
                   className="w-full pl-10 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>

@@ -16,10 +16,10 @@ export class ShiftController {
     const logger = new Log(res.locals.requestId, "ShiftController.find");
     try {
       const companyCode = res.locals.companyCode;
-      const startDate = moment(req.query.date, "YYYY/MM/DD")
+      const startDate = moment(req.query.date, "YYYY-MM-DD")
         .startOf("day")
         .utc(true);
-      const endDate = moment(req.query.date, "YYYY/MM/DD")
+      const endDate = moment(req.query.date, "YYYY-MM-DD")
         .utc(true)
         .endOf("day");
       const filter = {
@@ -47,6 +47,10 @@ export class ShiftController {
       const shift: IShift = req.body;
       shift.companyCode = companyCode;
       delete shift._id;
+      // Convertir fecha string a Date UTC
+      if (typeof shift.date === "string") {
+        shift.date = moment(shift.date, "YYYY-MM-DD").utc(true).toDate();
+      }
       /** Calculamos el tiempo de finalizacion */
 
       const shiftDuration = (
@@ -79,6 +83,11 @@ export class ShiftController {
     try {
       const companyCode = res.locals.companyCode;
       const shiftUpdate: IShift = req.body;
+      // Convertir fecha string a Date UTC
+      if (typeof shiftUpdate.date === "string") {
+        const dateStr = (shiftUpdate.date as string).split("T")[0];
+        shiftUpdate.date = moment(dateStr, "YYYY-MM-DD").utc(true).toDate();
+      }
       /** Verificar si existe */
       const exist = await shiftService.findOne({
         _id: shiftUpdate._id,
@@ -148,6 +157,8 @@ export class ShiftController {
         paid: 0,
         confirmed: 0,
         people: 0,
+        adults: 0,
+        children: 0,
         toConfirm: 0,
         cancelled: 0,
         total: 0,
@@ -160,6 +171,8 @@ export class ShiftController {
         if (el.status === "cancelled") totalForStatus.cancelled += 1;
         totalForStatus.total += 1;
         totalForStatus.people += el.peopleQty ? el.peopleQty : 0;
+        totalForStatus.adults += el.adultsQty ? el.adultsQty : 0;
+        totalForStatus.children += el.childrenQty ? el.childrenQty : 0;
       }
       return res.status(200).json({ ack: 0, data: totalForStatus });
     } catch (e) {
@@ -179,9 +192,9 @@ export class ShiftController {
       const companyCode = res.locals.companyCode;
       const date = req.query.date
         ? req.query.date
-        : moment().format("yyyy-MM-dd");
-      const startDate = moment(date, "YYYY/MM/DD").startOf("day").utc(true);
-      const endDate = moment(date, "YYYY/MM/DD").utc(true).endOf("day");
+        : moment().format("YYYY-MM-DD");
+      const startDate = moment(date, "YYYY-MM-DD").startOf("day").utc(true);
+      const endDate = moment(date, "YYYY-MM-DD").utc(true).endOf("day");
       const filter = {
         ...{ companyCode: companyCode },
         ...{ status: { $ne: "cancelled" } },
@@ -215,8 +228,8 @@ export class ShiftController {
     unitBusiness: string,
     shifts: IShift[]
   ) {
-    /** Obtenemos el dia */
-    let day = moment(date).format("dddd");
+    /** Obtenemos el dia en inglés para coincidir con configuración */
+    let day = moment(date).locale("en").format("dddd");
     day = day.charAt(0).toUpperCase() + day.slice(1);
     /** Obtenemos datos de inicio, duracion, final de dia */
     const timeSchedule = (
@@ -272,9 +285,8 @@ export class ShiftController {
     return parseInt(timeSplit[0]) * 60 + parseInt(timeSplit[1]);
   }
   private static parseMinutesToTime(time: number): string {
-    let hora = time / 60;
+    const hora = Math.floor(time / 60);
     const min = time % 60;
-    hora = Math.floor(hora);
-    return `${hora}:${min % 10 > 0 ? min : min + "0"}`;
+    return `${String(hora).padStart(2, "0")}:${String(min).padStart(2, "0")}`;
   }
 }

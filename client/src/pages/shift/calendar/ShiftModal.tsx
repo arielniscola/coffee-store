@@ -42,6 +42,8 @@ export default function ShiftModal({
     phoneNumber: initialShift?.phoneNumber || "",
     email: initialShift?.email || "",
     peopleQty: initialShift?.peopleQty || 0,
+    adultsQty: initialShift?.adultsQty || 1,
+    childrenQty: initialShift?.childrenQty || 0,
   });
   const [errorDate, setErrorDate] = useState<boolean>(false);
   const [availableSlots, setAvailableSlots] = useState<TimeSlot[]>([]);
@@ -58,6 +60,8 @@ export default function ShiftModal({
       phoneNumber: initialShift?.phoneNumber || "",
       email: initialShift?.email || "",
       peopleQty: initialShift?.peopleQty || 0,
+      adultsQty: initialShift?.adultsQty || 1,
+      childrenQty: initialShift?.childrenQty || 0,
     });
   }, [isOpen]);
 
@@ -214,20 +218,43 @@ export default function ShiftModal({
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Número de Personas *
+                Adultos *
               </label>
               <input
                 type="number"
                 min="1"
                 max="20"
                 required
-                value={formData.peopleQty}
-                onChange={(e) =>
+                value={formData.adultsQty}
+                onChange={(e) => {
+                  const adultsQty = parseInt(e.target.value) || 0;
                   setFormData({
                     ...formData,
-                    peopleQty: parseInt(e.target.value),
-                  })
-                }
+                    adultsQty,
+                    peopleQty: adultsQty + formData.childrenQty,
+                  });
+                }}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Niños
+              </label>
+              <input
+                type="number"
+                min="0"
+                max="20"
+                value={formData.childrenQty}
+                onChange={(e) => {
+                  const childrenQty = parseInt(e.target.value) || 0;
+                  setFormData({
+                    ...formData,
+                    childrenQty,
+                    peopleQty: formData.adultsQty + childrenQty,
+                  });
+                }}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>

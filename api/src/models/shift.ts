@@ -13,6 +13,8 @@ export interface IShift {
   unitBusiness: string;
   tableNumber?: string;
   peopleQty?: number;
+  adultsQty?: number;
+  childrenQty?: number;
   email: string;
   phoneNumber: string;
 }
@@ -56,6 +58,14 @@ export const ShiftSchema = createSchema<IShift>({
     required: false,
   },
   peopleQty: {
+    type: Number,
+    required: false,
+  },
+  adultsQty: {
+    type: Number,
+    required: false,
+  },
+  childrenQty: {
     type: Number,
     required: false,
   },

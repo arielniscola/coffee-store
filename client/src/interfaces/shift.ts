@@ -12,4 +12,6 @@ export interface IShift {
   phoneNumber: string;
   email: string;
   peopleQty: number;
+  adultsQty?: number;
+  childrenQty?: number;
 }
