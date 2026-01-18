@@ -103,7 +103,7 @@ export default function ReservationModal({
         setConfirmOpen(true);
       } else {
         notifyError(
-          "No se pudo realizar la reserva, por favor contactar mediante whatsapp"
+          "No se pudo realizar la reserva, por favor contactar mediante whatsapp",
         );
       }
     } catch (error) {
@@ -250,7 +250,7 @@ export default function ReservationModal({
                     setFormData({
                       ...formData,
                       adultsQty,
-                      peopleQty: adultsQty + formData.childrenQty,
+                      peopleQty: adultsQty + (formData.childrenQty || 0),
                     });
                   }}
                   className="w-full pl-10 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -277,7 +277,7 @@ export default function ReservationModal({
                     setFormData({
                       ...formData,
                       childrenQty,
-                      peopleQty: formData.adultsQty + childrenQty,
+                      peopleQty: (formData.adultsQty || 0) + childrenQty,
                     });
                   }}
                   className="w-full pl-10 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -337,10 +337,10 @@ export default function ReservationModal({
                   <div className="mt-1">
                     <span className={`font-bold text-lg ${"text-orange-600"}`}>
                       {availableSlots.find(
-                        (a) => a.initialTime == formData.timeStart
+                        (a) => a.initialTime == formData.timeStart,
                       )
                         ? availableSlots.find(
-                            (a) => a.initialTime == formData.timeStart
+                            (a) => a.initialTime == formData.timeStart,
                           )?.availables
                         : 0}{" "}
                       lugares disponibles
