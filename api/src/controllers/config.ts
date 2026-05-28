@@ -7,9 +7,9 @@ export class ConfigController {
   static find: IRouteController<{}, {}, {}, {}> = async (req, res) => {
     const logger = new Log(res.locals.requestId, "ShiftController.find");
     try {
-      const companyCode = res.locals.companyCode;
+      const companyCode = res.locals.companyCode || "wichiwi";
       const data: IConfig[] = await configService.find({
-        ...{ companyCode: companyCode },
+        companyCode,
       });
       return res.status(200).json({ ack: 0, data: data });
     } catch (e) {

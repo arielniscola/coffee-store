@@ -12,31 +12,56 @@ import {
 } from "lucide-react";
 import { ICompany } from "../../interfaces/company";
 import { getCompany, updateCompany } from "../../services/company";
-import toast, { Toaster } from "react-hot-toast";
+import toast from "react-hot-toast";
 
 const notify = (msg: string) => toast.success(msg);
 const notifyError = (msg: string) => toast.error(msg);
+
+interface FieldProps {
+  label: string;
+  icon: React.ReactNode;
+  value: string | undefined;
+  onChange: (v: string) => void;
+  type?: string;
+}
+
+const Field = ({ label, icon, value, onChange, type = "text" }: FieldProps) => (
+  <div>
+    <label className="text-sm font-medium text-gray-700 mb-1.5 flex items-center gap-2">
+      {icon}
+      {label}
+    </label>
+    <input
+      type={type}
+      value={value || ""}
+      onChange={(e) => onChange(e.target.value)}
+      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-300 focus:border-pink-300"
+    />
+  </div>
+);
+
+const emptyForm: ICompany = {
+  code: "",
+  companyName: "",
+  address: "",
+  companyNumber: "",
+  type: "",
+  cellphone: "",
+  active: true,
+  instagram: "",
+  facebook: "",
+  twitter: "",
+  email: "",
+  alias: "",
+  accountName: "",
+  cuit: "",
+};
 
 export function CompanyProfile() {
   const [profile, setProfile] = useState<ICompany | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [formData, setFormData] = useState<ICompany>({
-    code: "",
-    companyName: "",
-    address: "",
-    companyNumber: "",
-    type: "",
-    cellphone: "",
-    active: true,
-    instagram: "",
-    facebook: "",
-    twitter: "",
-    email: "",
-    alias: "",
-    accountName: "",
-    cuit: "",
-  });
+  const [formData, setFormData] = useState<ICompany>(emptyForm);
 
   useEffect(() => {
     loadProfile();
@@ -61,11 +86,8 @@ export function CompanyProfile() {
     setSaving(true);
     try {
       const res = await updateCompany(formData);
-      if (!res.ack) {
-        notify("Perfil actualizado con éxito");
-      } else {
-        throw new Error(res.message);
-      }
+      if (!res.ack) notify("Perfil actualizado con éxito");
+      else throw new Error(res.message);
       loadProfile();
     } catch (error) {
       console.error("Error saving profile:", error);
@@ -78,179 +100,127 @@ export function CompanyProfile() {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-400"></div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-4xl">
-      <div className="bg-white rounded-lg border border-gray-200 p-4">
+    <div className="max-w-5xl">
+      <div className="bg-white rounded-xl border border-gray-200 p-5 md:p-6">
         <div className="flex items-center gap-3 mb-6 pb-3 border-b border-gray-200">
-          <Building2 className="w-8 h-8 text-blue-600" />
-          <h2 className="text-3xl font-bold text-gray-900">
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-pink-300 to-blue-300 flex items-center justify-center text-white">
+            <Building2 className="w-5 h-5" />
+          </div>
+          <h2 className="text-2xl font-bold text-gray-800">
             Perfil de la Compañía
           </h2>
         </div>
 
         <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Nombre de la Compañía
-              </label>
-              <input
-                type="text"
+          <section>
+            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
+              Datos generales
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Field
+                label="Nombre de la Compañía"
+                icon={<Building2 className="w-4 h-4 text-gray-400" />}
                 value={formData.companyName}
-                onChange={(e) =>
-                  setFormData({ ...formData, companyName: e.target.value })
+                onChange={(v) =>
+                  setFormData({ ...formData, companyName: v })
                 }
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-                <Mail className="w-4 h-4" /> Email
-              </label>
-              <input
-                type="text"
+              <Field
+                label="Email"
+                icon={<Mail className="w-4 h-4 text-gray-400" />}
                 value={formData.email}
-                onChange={(e) =>
-                  setFormData({ ...formData, email: e.target.value })
-                }
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                onChange={(v) => setFormData({ ...formData, email: v })}
+                type="email"
               />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-                <Mail className="w-4 h-4" /> Dirección
-              </label>
-              <input
-                type="text"
-                value={formData.address}
-                onChange={(e) =>
-                  setFormData({ ...formData, address: e.target.value })
-                }
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-                <Phone className="w-4 h-4" /> Teléfono
-              </label>
-              <input
-                type="tel"
+              <Field
+                label="Teléfono"
+                icon={<Phone className="w-4 h-4 text-gray-400" />}
                 value={formData.cellphone}
-                onChange={(e) =>
-                  setFormData({ ...formData, cellphone: e.target.value })
+                onChange={(v) =>
+                  setFormData({ ...formData, cellphone: v })
                 }
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                type="tel"
               />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-                <Facebook className="w-4 h-4" /> Facebook
-              </label>
-              <input
-                type="url"
-                value={formData.facebook}
-                onChange={(e) =>
-                  setFormData({ ...formData, facebook: e.target.value })
-                }
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-                <MapPin className="w-4 h-4" /> Dirección
-              </label>
-              <input
-                type="text"
+              <Field
+                label="Dirección"
+                icon={<MapPin className="w-4 h-4 text-gray-400" />}
                 value={formData.address}
-                onChange={(e) =>
-                  setFormData({ ...formData, address: e.target.value })
-                }
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                onChange={(v) => setFormData({ ...formData, address: v })}
               />
             </div>
+          </section>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-                <Instagram className="w-4 -4" /> Instagram
-              </label>
-              <input
-                type="text"
+          <section>
+            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
+              Redes sociales
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Field
+                label="Instagram"
+                icon={<Instagram className="w-4 h-4 text-pink-400" />}
                 value={formData.instagram}
-                onChange={(e) =>
-                  setFormData({ ...formData, instagram: e.target.value })
+                onChange={(v) =>
+                  setFormData({ ...formData, instagram: v })
                 }
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-                <Twitter className="w-4 h-4" /> Twitter
-              </label>
-              <input
-                type="url"
+              <Field
+                label="Facebook"
+                icon={<Facebook className="w-4 h-4 text-blue-500" />}
+                value={formData.facebook}
+                onChange={(v) =>
+                  setFormData({ ...formData, facebook: v })
+                }
+              />
+              <Field
+                label="Twitter"
+                icon={<Twitter className="w-4 h-4 text-blue-400" />}
                 value={formData.twitter}
-                onChange={(e) =>
-                  setFormData({ ...formData, twitter: e.target.value })
+                onChange={(v) =>
+                  setFormData({ ...formData, twitter: v })
                 }
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-                <Landmark className="w-4 h-4" /> CUIT
-              </label>
-              <input
-                type="text"
-                value={formData.cuit}
-                onChange={(e) =>
-                  setFormData({ ...formData, cuit: e.target.value })
-                }
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-                <Landmark className="w-4 h-4" /> Nombre de la Cuenta
-              </label>
-              <input
-                type="text"
-                value={formData.accountName}
-                onChange={(e) =>
-                  setFormData({ ...formData, accountName: e.target.value })
-                }
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-                <Landmark className="w-4 h-4" /> Alias
-              </label>
-              <input
-                type="text"
-                value={formData.alias}
-                onChange={(e) =>
-                  setFormData({ ...formData, alias: e.target.value })
-                }
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-          </div>
+          </section>
 
-          <div className="flex justify-end pt-6 border-t border-gray-200">
+          <section>
+            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
+              Datos bancarios
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Field
+                label="CUIT"
+                icon={<Landmark className="w-4 h-4 text-gray-400" />}
+                value={formData.cuit}
+                onChange={(v) => setFormData({ ...formData, cuit: v })}
+              />
+              <Field
+                label="Nombre de la Cuenta"
+                icon={<Landmark className="w-4 h-4 text-gray-400" />}
+                value={formData.accountName}
+                onChange={(v) =>
+                  setFormData({ ...formData, accountName: v })
+                }
+              />
+              <Field
+                label="Alias"
+                icon={<Landmark className="w-4 h-4 text-gray-400" />}
+                value={formData.alias}
+                onChange={(v) => setFormData({ ...formData, alias: v })}
+              />
+            </div>
+          </section>
+
+          <div className="flex justify-end pt-4 border-t border-gray-200">
             <button
               onClick={handleSave}
               disabled={saving}
-              className="flex items-center gap-2 px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="inline-flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-pink-400 to-blue-400 text-white rounded-lg font-semibold hover:from-pink-300 hover:to-blue-300 transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Save className="w-5 h-5" />
               {saving ? "Guardando..." : "Guardar Cambios"}
@@ -258,7 +228,6 @@ export function CompanyProfile() {
           </div>
         </div>
       </div>
-      <Toaster position="bottom-right" />
     </div>
   );
 }

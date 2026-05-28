@@ -5,9 +5,10 @@ import { unauthorized } from ".";
 
 export const getShifts = async (date: string, unitBusiness?: string) => {
   try {
-    /** Configurar fecha como principio de semana */
+    const params = new URLSearchParams({ date });
+    if (unitBusiness) params.set("unitBusiness", unitBusiness);
     const res = await fetch(
-      `${URL_API}/shifts?date=${date}&unitBusiness=${unitBusiness}`,
+      `${URL_API}/shifts?${params.toString()}`,
       {
         method: "GET",
         headers: {
@@ -104,6 +105,63 @@ export const getStatistics = async (date: string) => {
     throw error;
   }
 };
+export const checkoutShift = async (
+  shift: Partial<IShift>,
+): Promise<{
+  ack: number;
+  shiftId?: string;
+  requiresPayment?: boolean;
+  paymentLink?: string | null;
+  message?: string;
+}> => {
+  const res = await fetch(`${URL_API}/shifts/checkout`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${localStorage.getItem("token")}`,
+    },
+    body: JSON.stringify(shift),
+  });
+  if (res.status === 401) unauthorized();
+  return res.json();
+};
+
+export interface ShiftPaymentSummary {
+  client?: string;
+  date?: string;
+  timeStart?: string;
+  peopleQty?: number;
+  adultsQty?: number;
+  childrenQty?: number;
+  price?: number;
+  paymentLink?: string;
+}
+
+export const getShiftPaymentStatus = async (
+  shiftId: string,
+  paymentId?: string,
+): Promise<{
+  ack: number;
+  status?: string;
+  paymentStatus?: string;
+  paidAt?: string;
+  shift?: ShiftPaymentSummary;
+}> => {
+  const qs = paymentId ? `?payment_id=${encodeURIComponent(paymentId)}` : "";
+  const res = await fetch(
+    `${URL_API}/shifts/${shiftId}/payment-status${qs}`,
+    {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${localStorage.getItem("token")}`,
+      },
+    },
+  );
+  if (res.status === 401) unauthorized();
+  return res.json();
+};
+
 export const getAvailableShifts = async (date: string) => {
   try {
     /** Configurar fecha como principio de semana */

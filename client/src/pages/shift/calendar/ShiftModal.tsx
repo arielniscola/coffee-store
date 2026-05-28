@@ -1,5 +1,15 @@
-import React, { useEffect, useState } from "react";
-import { AlertCircle, Clock, X } from "lucide-react";
+import React, { useEffect, useMemo, useState } from "react";
+import {
+  AlertCircle,
+  Calendar as CalendarIcon,
+  Clock,
+  DollarSign,
+  Mail,
+  Phone,
+  User,
+  Users,
+  X,
+} from "lucide-react";
 import type { IShift } from "../../../interfaces/shift";
 import { getAvailableShifts } from "../../../services/shiftService";
 import { format } from "date-fns";
@@ -20,6 +30,14 @@ interface TimeSlot {
   initialTime: string;
 }
 
+const STATUS_OPTIONS: { value: string; label: string; color: string }[] = [
+  { value: "toConfirm", label: "Pendiente", color: "bg-yellow-100 text-yellow-700" },
+  { value: "confirmed", label: "Confirmada", color: "bg-blue-100 text-blue-700" },
+  { value: "paid", label: "Pagada", color: "bg-green-100 text-green-700" },
+  { value: "completed", label: "Completada", color: "bg-gray-100 text-gray-700" },
+  { value: "cancelled", label: "Cancelada", color: "bg-red-100 text-red-700" },
+];
+
 export default function ShiftModal({
   isOpen,
   onClose,
@@ -30,280 +48,403 @@ export default function ShiftModal({
   selectedUnitBusiness,
   loading,
 }: ShiftModalProps) {
-  const [formData, setFormData] = useState({
+  const buildInitial = () => ({
     _id: initialShift?._id || "",
     client: initialShift?.client || "",
     timeStart: initialShift?.timeStart || time,
-    timeEnd: initialShift?.timeEnd || time,
+    timeEnd: initialShift?.timeEnd || "",
     status: initialShift?.status || "toConfirm",
     unitBusiness: initialShift?.unitBusiness || selectedUnitBusiness,
-    date: initialShift?.date.split("T")[0] || format(date, "yyyy-MM-dd"),
+    date:
+      initialShift?.date?.split("T")[0] || format(date, "yyyy-MM-dd"),
     description: initialShift?.description || "",
     phoneNumber: initialShift?.phoneNumber || "",
     email: initialShift?.email || "",
     peopleQty: initialShift?.peopleQty || 0,
     adultsQty: initialShift?.adultsQty || 1,
     childrenQty: initialShift?.childrenQty || 0,
+    price: initialShift?.price || 0,
   });
-  const [errorDate, setErrorDate] = useState<boolean>(false);
+
+  const [formData, setFormData] = useState(buildInitial);
+  const [errorDate, setErrorDate] = useState(false);
+  const [loadingSlots, setLoadingSlots] = useState(false);
   const [availableSlots, setAvailableSlots] = useState<TimeSlot[]>([]);
+
+  const peopleQty = useMemo(
+    () => (formData.adultsQty || 0) + (formData.childrenQty || 0),
+    [formData.adultsQty, formData.childrenQty],
+  );
+
   useEffect(() => {
-    setFormData({
-      _id: initialShift?._id || "",
-      client: initialShift?.client || "",
-      unitBusiness: initialShift?.unitBusiness || selectedUnitBusiness,
-      status: initialShift?.status || "toConfirm",
-      timeStart: initialShift?.timeStart || time,
-      timeEnd: initialShift?.timeEnd || "",
-      date: initialShift?.date.split("T")[0] || format(date, "yyyy-MM-dd"),
-      description: initialShift?.description || "",
-      phoneNumber: initialShift?.phoneNumber || "",
-      email: initialShift?.email || "",
-      peopleQty: initialShift?.peopleQty || 0,
-      adultsQty: initialShift?.adultsQty || 1,
-      childrenQty: initialShift?.childrenQty || 0,
-    });
+    if (isOpen) setFormData(buildInitial());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
   useEffect(() => {
+    if (!isOpen) return;
     const fetchAvailables = async () => {
       try {
-        let dateSet = "";
-        typeof formData.date == "string"
-          ? (dateSet = formData.date)
-          : format(formData.date, "yyyy-MM-ddd");
+        setLoadingSlots(true);
+        const dateSet =
+          typeof formData.date === "string"
+            ? formData.date
+            : format(formData.date, "yyyy-MM-dd");
         const reservations = await getAvailableShifts(dateSet);
-        setAvailableSlots(reservations);
+        setAvailableSlots(Array.isArray(reservations) ? reservations : []);
       } catch (error) {
-        console.error("Error fetching reservas disponiles:", error);
+        console.error("Error fetching reservas disponibles:", error);
+        setAvailableSlots([]);
+      } finally {
+        setLoadingSlots(false);
       }
     };
     fetchAvailables();
-  }, [formData.date]);
+  }, [formData.date, isOpen]);
 
   if (!isOpen) return null;
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const selectedSlot = availableSlots.find(
+    (a) => a.initialTime === formData.timeStart,
+  );
+  const insufficient =
+    peopleQty > 0 &&
+    !!formData.timeStart &&
+    peopleQty > (selectedSlot?.availables || 0);
+
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setFormData({ ...formData, timeEnd: "" });
-    onSave(formData);
+    onSave({ ...formData, peopleQty });
     onClose();
   };
 
   const handleDate = (date: string) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-
     const inputDate = new Date(date);
     inputDate.setHours(0, 0, 0, 0);
-
     if (inputDate >= today) {
-      setFormData({ ...formData, date: date });
+      setFormData({ ...formData, date, timeStart: "" });
       setErrorDate(false);
     } else {
       setErrorDate(true);
     }
   };
 
-  const SlotGroup = ({ slots }: { title: string; slots: TimeSlot[] }) => (
-    <div>
-      {slots.length != 0 ? (
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-3">
-            Selecciona un Horario *
-          </label>
-          <div className="grid grid-cols-4 gap-2 max-h-64 overflow-y-auto p-2 bg-gray-50 rounded-lg">
-            {slots.map((sl) => {
-              const estaSeleccionado = formData.timeStart === sl.initialTime;
-
-              return (
-                <button
-                  key={sl.initialTime}
-                  type="button"
-                  onClick={() =>
-                    setFormData({ ...formData, timeStart: sl.initialTime })
-                  }
-                  className={`p-3 rounded-lg border-2 transition-all text-sm font-medium ${
-                    estaSeleccionado
-                      ? "border-amber-500 bg-amber-50 text-amber-700 shadow-md"
-                      : "border-gray-200 hover:border-amber-300 hover:bg-white text-gray-700"
-                  }`}
-                >
-                  <div className="flex flex-col items-center gap-1">
-                    <Clock size={16} />
-                    <span>{sl.initialTime}</span>
-                    <span className={`text-xs ${"text-green-600"}`}>
-                      {sl.availables} lugares
-                    </span>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      ) : (
-        <div className="text-md text-center">No hay reservas disponibles</div>
-      )}
-    </div>
-  );
-
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="bg-slate-800 text-white p-6 rounded-t-2xl flex items-center justify-between">
-          <h2 className="text-2xl font-bold">Reservar Mesa</h2>
+      <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[92vh] overflow-y-auto">
+        <div className="sticky top-0 bg-gradient-to-r from-pink-300 to-blue-300 text-white p-5 rounded-t-2xl flex items-center justify-between z-10">
+          <div>
+            <h2 className="text-2xl font-bold">
+              {formData._id ? "Editar reserva" : "Nueva reserva"}
+            </h2>
+            <p className="text-sm text-white/80">
+              {format(new Date(formData.date + "T00:00:00"), "dd/MM/yyyy")}
+              {formData.timeStart && ` · ${formData.timeStart}`}
+            </p>
+          </div>
           <button
             onClick={onClose}
-            className="hover:bg-pink-400 rounded-full p-2 transition-colors"
+            className="hover:bg-white/20 rounded-full p-2 transition-colors"
             aria-label="Cerrar"
           >
             <X className="w-6 h-6" />
           </button>
         </div>
+
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Nombre del Cliente *
-              </label>
-              <input
-                type="text"
-                required
-                value={formData.client}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    client: e.target.value,
-                  })
-                }
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
+          <section>
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+              Datos del cliente
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Nombre del cliente *
+                </label>
+                <div className="relative">
+                  <User
+                    size={18}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                  />
+                  <input
+                    type="text"
+                    required
+                    value={formData.client}
+                    placeholder="Ej: Juan Pérez"
+                    onChange={(e) =>
+                      setFormData({ ...formData, client: e.target.value })
+                    }
+                    className="w-full pl-10 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-300 focus:border-pink-300"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Email *
+                </label>
+                <div className="relative">
+                  <Mail
+                    size={18}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                  />
+                  <input
+                    type="email"
+                    required
+                    value={formData.email}
+                    placeholder="correo@ejemplo.com"
+                    onChange={(e) =>
+                      setFormData({ ...formData, email: e.target.value })
+                    }
+                    className="w-full pl-10 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-300 focus:border-pink-300"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Teléfono *
+                </label>
+                <div className="relative">
+                  <Phone
+                    size={18}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                  />
+                  <input
+                    type="tel"
+                    required
+                    value={formData.phoneNumber}
+                    placeholder="2614789647"
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        phoneNumber: e.target.value,
+                      })
+                    }
+                    className="w-full pl-10 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-300 focus:border-pink-300"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Estado
+                </label>
+                <select
+                  value={formData.status}
+                  onChange={(e) =>
+                    setFormData({ ...formData, status: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-300 focus:border-pink-300"
+                >
+                  {STATUS_OPTIONS.map((s) => (
+                    <option key={s.value} value={s.value}>
+                      {s.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </section>
+
+          <section>
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+              Personas
+            </h3>
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Adultos *
+                </label>
+                <div className="relative">
+                  <Users
+                    size={18}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                  />
+                  <input
+                    type="number"
+                    min="1"
+                    max="20"
+                    required
+                    value={formData.adultsQty}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        adultsQty: parseInt(e.target.value) || 0,
+                      })
+                    }
+                    className="w-full pl-10 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-300 focus:border-pink-300"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Niños
+                </label>
+                <div className="relative">
+                  <Users
+                    size={18}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                  />
+                  <input
+                    type="number"
+                    min="0"
+                    max="20"
+                    value={formData.childrenQty}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        childrenQty: parseInt(e.target.value) || 0,
+                      })
+                    }
+                    className="w-full pl-10 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-300 focus:border-pink-300"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Total
+                </label>
+                <div className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-center text-lg font-bold text-gray-700">
+                  {peopleQty}
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section>
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+              Fecha y horario
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Fecha *
+                </label>
+                <div className="relative">
+                  <CalendarIcon
+                    size={18}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                  />
+                  <input
+                    type="date"
+                    required
+                    value={formData.date}
+                    min={format(new Date(), "yyyy-MM-dd")}
+                    onChange={(e) => handleDate(e.target.value)}
+                    className="w-full pl-10 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-300 focus:border-pink-300"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Horario seleccionado
+                </label>
+                <div className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 flex items-center gap-2">
+                  <Clock size={16} className="text-gray-400" />
+                  {formData.timeStart || (
+                    <span className="text-gray-400">— sin horario —</span>
+                  )}
+                </div>
+              </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Email *
-              </label>
-              <input
-                type="email"
-                required
-                value={formData.email}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    email: e.target.value,
-                  })
-                }
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Selecciona un horario
+            </label>
+            {loadingSlots ? (
+              <div className="text-center py-6 text-gray-500 text-sm">
+                Cargando disponibilidad...
+              </div>
+            ) : availableSlots.length === 0 ? (
+              <div className="text-center py-6 text-gray-500 text-sm bg-gray-50 rounded-lg">
+                No hay horarios disponibles para esta fecha.
+              </div>
+            ) : (
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2 max-h-56 overflow-y-auto p-2 bg-gray-50 rounded-lg">
+                {availableSlots.map((sl) => {
+                  const selected = formData.timeStart === sl.initialTime;
+                  const noRoom = peopleQty > 0 && sl.availables < peopleQty;
+                  return (
+                    <button
+                      key={sl.initialTime}
+                      type="button"
+                      disabled={noRoom && !selected}
+                      onClick={() =>
+                        setFormData({
+                          ...formData,
+                          timeStart: sl.initialTime,
+                        })
+                      }
+                      className={`p-2 rounded-lg border-2 transition-all text-sm font-medium ${
+                        selected
+                          ? "border-pink-400 bg-pink-50 text-pink-700 shadow-md"
+                          : noRoom
+                            ? "border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"
+                            : "border-gray-200 hover:border-pink-300 hover:bg-white text-gray-700"
+                      }`}
+                    >
+                      <div className="flex flex-col items-center gap-0.5">
+                        <span className="font-semibold">{sl.initialTime}</span>
+                        <span
+                          className={`text-xs ${
+                            noRoom ? "text-red-500" : "text-green-600"
+                          }`}
+                        >
+                          {sl.availables} lugares
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </section>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Teléfono *
-              </label>
-              <input
-                type="tel"
-                required
-                value={formData.phoneNumber}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    phoneNumber: e.target.value,
-                  })
-                }
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
+          <section>
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+              Pago
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Precio total
+                </label>
+                <div className="relative">
+                  <DollarSign
+                    size={18}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                  />
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={formData.price}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        price: parseFloat(e.target.value) || 0,
+                      })
+                    }
+                    placeholder="0.00"
+                    className="w-full pl-10 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-300 focus:border-pink-300"
+                  />
+                </div>
+              </div>
+              {peopleQty > 0 && (formData.price || 0) > 0 && (
+                <div className="flex items-end">
+                  <div className="text-sm text-gray-500 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 w-full">
+                    Por persona:{" "}
+                    <span className="font-semibold text-gray-700">
+                      ${((formData.price || 0) / peopleQty).toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
+          </section>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Adultos *
-              </label>
-              <input
-                type="number"
-                min="1"
-                max="20"
-                required
-                value={formData.adultsQty}
-                onChange={(e) => {
-                  const adultsQty = parseInt(e.target.value) || 0;
-                  setFormData({
-                    ...formData,
-                    adultsQty,
-                    peopleQty: adultsQty + formData.childrenQty,
-                  });
-                }}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Niños
-              </label>
-              <input
-                type="number"
-                min="0"
-                max="20"
-                value={formData.childrenQty}
-                onChange={(e) => {
-                  const childrenQty = parseInt(e.target.value) || 0;
-                  setFormData({
-                    ...formData,
-                    childrenQty,
-                    peopleQty: formData.adultsQty + childrenQty,
-                  });
-                }}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Fecha de Reserva *
-              </label>
-              <input
-                type="date"
-                required
-                value={formData.date}
-                onChange={(e) => handleDate(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Horario Inicio Reserva
-              </label>
-              <input
-                type="text"
-                disabled
-                value={formData.timeStart}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Estado
-              </label>
-              <select
-                value={formData.status}
-                onChange={(e) =>
-                  setFormData({ ...formData, status: e.target.value as any })
-                }
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="toConfirm">Pendiente</option>
-                <option value="confirmed">Confirmado</option>
-                <option value="cancelled">Cancelada</option>
-                <option value="completed">Completada</option>
-                <option value="paid">Pagada</option>
-              </select>
-            </div>
-          </div>
-          <SlotGroup title="Cena" slots={availableSlots} />
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
               Notas
             </label>
             <textarea
@@ -312,70 +453,59 @@ export default function ShiftModal({
               onChange={(e) =>
                 setFormData({ ...formData, description: e.target.value })
               }
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-300 focus:border-pink-300"
               placeholder="Alergias, preferencias, ocasiones especiales..."
             />
           </div>
-          {formData.peopleQty > 0 &&
-            formData.timeStart &&
-            formData.peopleQty >
-              (availableSlots.find((a) => a.initialTime == formData.timeStart)
-                ?.availables || 0) && (
-              <div>
-                {/* Indicador de Disponibilidad */}
-                <div className="mt-3 p-3 bg-orange-50 border border-orange-200 rounded-lg flex items-start gap-2">
-                  <AlertCircle
-                    size={18}
-                    className="text-orange-600 mt-0.5 flex-shrink-0"
-                  />
-                  <div className="text-sm">
-                    <div className="mt-1">
-                      <span
-                        className={`font-bold text-lg ${"text-orange-600"}`}
-                      >
-                        {availableSlots.find(
-                          (a) => a.initialTime == formData.timeStart
-                        )
-                          ? availableSlots.find(
-                              (a) => a.initialTime == formData.timeStart
-                            )?.availables
-                          : 0}{" "}
-                        lugares disponibles
-                      </span>
-                    </div>
 
-                    <p className="text-orange-700 mt-1 text-xs">
-                      ⚠️ Ha seleccionado un horario donde no hay disponibilidad
-                      para la cantidad de personas requeridas.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-          {errorDate && (
-            <div>
-              {/* Error de fecha */}
-              <div className="mt-3 p-3 bg-orange-50 border border-orange-200 rounded-lg flex items-start gap-2">
-                <AlertCircle
-                  size={18}
-                  className="text-orange-600 mt-0.5 flex-shrink-0"
-                />
-                <div className="text-sm">
-                  <div className="mt-1"></div>
-                  <p className="text-orange-700 mt-1 text-xs">
-                    ⚠️ Ha seleccionado una fecha que no corresponde.
-                  </p>
-                </div>
+          {insufficient && (
+            <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg flex items-start gap-2">
+              <AlertCircle
+                size={18}
+                className="text-orange-600 mt-0.5 flex-shrink-0"
+              />
+              <div className="text-sm">
+                <p className="font-bold text-orange-700">
+                  {selectedSlot?.availables ?? 0} lugares disponibles
+                </p>
+                <p className="text-orange-700 text-xs mt-1">
+                  El horario seleccionado no tiene cupo para la cantidad de
+                  personas indicada.
+                </p>
               </div>
             </div>
           )}
+
+          {errorDate && (
+            <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg flex items-start gap-2">
+              <AlertCircle
+                size={18}
+                className="text-orange-600 mt-0.5 flex-shrink-0"
+              />
+              <p className="text-orange-700 text-xs">
+                ⚠️ La fecha seleccionada no es válida.
+              </p>
+            </div>
+          )}
+
           <div className="flex gap-3 pt-4 border-t border-gray-200">
             <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-slate-600 text-white py-4 rounded-lg font-bold text-lg hover:bg-slate-700 transition-all transform hover:scale-[1.02] shadow-lg"
+              type="button"
+              onClick={onClose}
+              className="flex-1 px-4 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-semibold transition-colors"
             >
-              {loading ? "Guardando..." : "Confirmar Reserva"}
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={loading || insufficient || errorDate}
+              className="flex-1 bg-gradient-to-r from-pink-400 to-blue-400 text-white py-3 rounded-lg font-bold hover:from-pink-300 hover:to-blue-300 transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading
+                ? "Guardando..."
+                : formData._id
+                  ? "Guardar cambios"
+                  : "Crear reserva"}
             </button>
           </div>
         </form>

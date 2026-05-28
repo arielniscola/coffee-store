@@ -14,4 +14,10 @@ export interface IShift {
   peopleQty: number;
   adultsQty?: number;
   childrenQty?: number;
+  price?: number;
+  paymentId?: string;
+  paymentStatus?: string;
+  paymentLink?: string;
+  paidAt?: string;
+  paymentExpiresAt?: string;
 }

@@ -9,10 +9,17 @@ const Login = () => {
     password: "",
     companyCode: "",
   });
+  const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    loginUser(loginData);
+    if (loading) return;
+    setLoading(true);
+    try {
+      await loginUser(loginData);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -25,23 +32,22 @@ const Login = () => {
         backgroundRepeat: "no-repeat",
       }}
     >
-      {/* Dark overlay */}
       <div className="absolute inset-0 bg-black/40" />
 
       <div className="max-w-md w-full bg-white/95 backdrop-blur-sm rounded-xl shadow-lg p-8 space-y-6 relative z-10">
         <div className="text-center">
           <div className="flex justify-center">
-            <LogIn className="h-12 w-12 text-indigo-600" />
+            <LogIn className="h-12 w-12 text-pink-400" />
           </div>
           <h1 className="mt-4 text-3xl font-bold text-gray-900">
-            Bienvenidos!
+            ¡Bienvenidos!
           </h1>
           <p className="mt-2 text-gray-600">
             Por favor inicie sesión con la cuenta
           </p>
         </div>
 
-        <form className="space-y-6">
+        <form className="space-y-6" onSubmit={handleSubmit}>
           <div className="space-y-2">
             <label
               htmlFor="company"
@@ -60,16 +66,17 @@ const Login = () => {
                 onChange={(e) =>
                   setLoginData({ ...loginData, companyCode: e.target.value })
                 }
-                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-400 focus:border-pink-400"
                 placeholder="Tu cod. de compañia"
                 required
+                autoComplete="organization"
               />
             </div>
           </div>
 
           <div className="space-y-2">
             <label
-              htmlFor="email"
+              htmlFor="username"
               className="text-sm font-medium text-gray-700 block"
             >
               Usuario
@@ -85,9 +92,10 @@ const Login = () => {
                 onChange={(e) =>
                   setLoginData({ ...loginData, username: e.target.value })
                 }
-                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-400 focus:border-pink-400"
                 placeholder="Tu usuario"
                 required
+                autoComplete="username"
               />
             </div>
           </div>
@@ -110,35 +118,20 @@ const Login = () => {
                 onChange={(e) =>
                   setLoginData({ ...loginData, password: e.target.value })
                 }
-                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-400 focus:border-pink-400"
                 placeholder="••••••••"
                 required
+                autoComplete="current-password"
               />
             </div>
           </div>
 
-          {/* <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <input
-                id="remember-me"
-                type="checkbox"
-                className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
-              />
-              <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700">
-                Remember me
-              </label>
-            </div>
-            <a href="#" className="text-sm font-medium text-indigo-600 hover:text-indigo-500">
-              Forgot password?
-            </a>
-          </div> */}
-
           <button
             type="submit"
-            className="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-200"
-            onClick={handleSubmit}
+            disabled={loading}
+            className="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-gradient-to-r from-pink-400 to-blue-400 hover:from-pink-300 hover:to-blue-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-400 transition duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            Iniciar sesión
+            {loading ? "Iniciando..." : "Iniciar sesión"}
           </button>
         </form>
       </div>

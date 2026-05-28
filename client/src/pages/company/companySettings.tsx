@@ -1,11 +1,282 @@
-import { useState, useEffect } from "react";
-import { Settings, Save, AlertCircle, X } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import {
+  Settings,
+  Save,
+  AlertCircle,
+  X,
+  Search,
+  RotateCcw,
+  Eye,
+  EyeOff,
+  DollarSign,
+  Clock,
+  Globe,
+  Shield,
+  CheckCircle2,
+} from "lucide-react";
 import { IConfig } from "../../interfaces/config";
 import { getConfigs, updateConfig } from "../../services/config";
-import toast, { Toaster } from "react-hot-toast";
+import toast from "react-hot-toast";
 
 const notify = (msg: string) => toast.success(msg);
 const notifyError = (msg: string) => toast.error(msg);
+
+type Category = "payments" | "schedule" | "public" | "system";
+
+interface CategoryMeta {
+  label: string;
+  description: string;
+  icon: React.ReactNode;
+  gradient: string;
+}
+
+const CATEGORIES: Record<Category, CategoryMeta> = {
+  payments: {
+    label: "Pagos",
+    description: "Precios de reserva y credenciales de Mercado Pago",
+    icon: <DollarSign className="w-5 h-5" />,
+    gradient: "from-green-300 to-emerald-400",
+  },
+  schedule: {
+    label: "Horarios",
+    description: "Días laborables, duración del turno y franjas horarias",
+    icon: <Clock className="w-5 h-5" />,
+    gradient: "from-pink-300 to-blue-300",
+  },
+  public: {
+    label: "Sitio público",
+    description: "URL pública y enlaces utilizados por Mercado Pago",
+    icon: <Globe className="w-5 h-5" />,
+    gradient: "from-blue-300 to-cyan-400",
+  },
+  system: {
+    label: "Sistema",
+    description: "Parámetros internos de la aplicación",
+    icon: <Shield className="w-5 h-5" />,
+    gradient: "from-purple-300 to-indigo-400",
+  },
+};
+
+const CATEGORY_BY_CODE: Record<string, Category> = {
+  priceAdult: "payments",
+  priceChild: "payments",
+  mpAccessToken: "payments",
+  publicBaseUrl: "public",
+  durationShift: "schedule",
+  daysWeek: "schedule",
+  scheduleDayMonday: "schedule",
+  scheduleDayTuesday: "schedule",
+  scheduleDayWednesday: "schedule",
+  scheduleDayThursday: "schedule",
+  scheduleDayFriday: "schedule",
+  scheduleDaySaturday: "schedule",
+  scheduleDaySunday: "schedule",
+  sessionExpiresIn: "system",
+};
+
+const DAY_LABELS: Record<string, string> = {
+  scheduleDayMonday: "Lunes",
+  scheduleDayTuesday: "Martes",
+  scheduleDayWednesday: "Miércoles",
+  scheduleDayThursday: "Jueves",
+  scheduleDayFriday: "Viernes",
+  scheduleDaySaturday: "Sábado",
+  scheduleDaySunday: "Domingo",
+};
+
+const getCategory = (code: string): Category =>
+  CATEGORY_BY_CODE[code] || "system";
+
+const isScheduleDay = (code: string) =>
+  code.startsWith("scheduleDay");
+
+const isValidRange = (input: string): boolean => {
+  const rangeRegex = /^([01]\d|2[0-3]):([0-5]\d)-([01]\d|2[0-3]):([0-5]\d)$/;
+  if (!input || typeof input !== "string") return false;
+  const ranges = input
+    .split(",")
+    .map((r) => r.trim())
+    .filter((r) => r.length > 0);
+  if (ranges.length === 0) return false;
+  const toMinutes = (hhmm: string) => {
+    const [h, m] = hhmm.split(":").map(Number);
+    return h * 60 + m;
+  };
+  for (const r of ranges) {
+    if (!rangeRegex.test(r)) return false;
+    const [start, end] = r.split("-");
+    if (toMinutes(start) >= toMinutes(end)) return false;
+  }
+  return true;
+};
+
+const validateValue = (
+  setting: IConfig,
+  value: string | number | boolean | object,
+): string | null => {
+  if (isScheduleDay(setting.code)) {
+    if (!isValidRange(String(value)))
+      return "Formato inválido. Usar HH:mm-HH:mm (ej: 09:00-13:00, 18:00-23:00).";
+  }
+  if (setting.dataType === "number") {
+    const n = Number(value);
+    if (Number.isNaN(n) || n < 0) return "Debe ser un número positivo.";
+  }
+  return null;
+};
+
+interface FieldRowProps {
+  setting: IConfig;
+  value: string | number | boolean | object;
+  onChange: (value: string | number | boolean) => void;
+  customLabel?: string;
+  hideName?: boolean;
+}
+
+const FieldRow = ({
+  setting,
+  value,
+  onChange,
+  customLabel,
+  hideName,
+}: FieldRowProps) => {
+  const [showSecret, setShowSecret] = useState(false);
+  const error = validateValue(setting, value);
+  const isSecret = setting.code === "mpAccessToken";
+  const isUrl = setting.code === "publicBaseUrl";
+  const isPrice =
+    setting.code === "priceAdult" || setting.code === "priceChild";
+  const isDuration = setting.code === "durationShift";
+
+  const label = customLabel ?? setting.name;
+
+  if (setting.dataType === "boolean") {
+    const checked = String(value) === "true";
+    return (
+      <div className="flex items-start justify-between gap-4 py-3">
+        <div className="flex-1 min-w-0">
+          {!hideName && (
+            <p className="font-medium text-gray-800">{label}</p>
+          )}
+          {setting.description && (
+            <p className="text-xs text-gray-500 mt-0.5">
+              {setting.description}
+            </p>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={() => onChange(!checked)}
+          className={`relative inline-flex h-6 w-11 flex-shrink-0 rounded-full transition-colors ${
+            checked
+              ? "bg-gradient-to-r from-pink-400 to-blue-400"
+              : "bg-gray-300"
+          }`}
+        >
+          <span
+            className={`inline-block h-5 w-5 rounded-full bg-white shadow transform transition-transform mt-0.5 ${
+              checked ? "translate-x-5" : "translate-x-0.5"
+            }`}
+          />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="py-3">
+      {!hideName && (
+        <label className="block text-sm font-medium text-gray-800">
+          {label}
+        </label>
+      )}
+      {setting.description && !hideName && (
+        <p className="text-xs text-gray-500 mt-0.5 mb-2">
+          {setting.description}
+        </p>
+      )}
+      <div className="relative">
+        {isPrice && (
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+            <DollarSign className="w-4 h-4" />
+          </span>
+        )}
+        {isSecret ? (
+          <>
+            <input
+              type={showSecret ? "text" : "password"}
+              value={String(value || "")}
+              placeholder="TEST-... o APP_USR-..."
+              onChange={(e) => onChange(e.target.value)}
+              className="w-full pr-10 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-300 focus:border-pink-300 font-mono text-sm"
+            />
+            <button
+              type="button"
+              onClick={() => setShowSecret((v) => !v)}
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600"
+              aria-label={
+                showSecret ? "Ocultar token" : "Mostrar token"
+              }
+            >
+              {showSecret ? (
+                <EyeOff className="w-4 h-4" />
+              ) : (
+                <Eye className="w-4 h-4" />
+              )}
+            </button>
+          </>
+        ) : (
+          <input
+            type={
+              setting.dataType === "number"
+                ? "number"
+                : isUrl
+                  ? "url"
+                  : "text"
+            }
+            value={String(value ?? "")}
+            placeholder={
+              isScheduleDay(setting.code)
+                ? "09:00-13:00, 18:00-23:00"
+                : isUrl
+                  ? "https://tusitio.com"
+                  : ""
+            }
+            onChange={(e) =>
+              onChange(
+                setting.dataType === "number"
+                  ? e.target.value === ""
+                    ? ""
+                    : Number(e.target.value)
+                  : e.target.value,
+              )
+            }
+            className={`w-full ${isPrice ? "pl-9" : ""} ${
+              isDuration ? "pr-20" : ""
+            } px-3 py-2 border ${
+              error ? "border-red-300" : "border-gray-300"
+            } rounded-lg focus:ring-2 ${
+              error
+                ? "focus:ring-red-300 focus:border-red-300"
+                : "focus:ring-pink-300 focus:border-pink-300"
+            }`}
+          />
+        )}
+        {isDuration && (
+          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-400 pointer-events-none">
+            minutos
+          </span>
+        )}
+      </div>
+      {error && (
+        <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+          <AlertCircle className="w-3 h-3" />
+          {error}
+        </p>
+      )}
+    </div>
+  );
+};
 
 export function CompanySettings() {
   const [settings, setSettings] = useState<IConfig[]>([]);
@@ -15,7 +286,10 @@ export function CompanySettings() {
   const [editedValues, setEditedValues] = useState<{
     [key: string]: string | boolean | number | object;
   }>({});
-  const [filter, setFilter] = useState<"all" | "server" | "client">("all");
+  const [search, setSearch] = useState("");
+  const [activeCategory, setActiveCategory] = useState<Category | "all">(
+    "all",
+  );
 
   useEffect(() => {
     loadSettings();
@@ -23,271 +297,350 @@ export function CompanySettings() {
 
   async function loadSettings() {
     try {
+      setLoading(true);
       const data = (await getConfigs()) as IConfig[];
       setSettings(data || []);
-
-      const initialValues: {
-        [key: string]: string | number | object | boolean;
-      } = {};
-      data?.forEach((setting) => {
-        initialValues[setting.code] = setting.value;
-      });
-      setEditedValues(initialValues);
-    } catch (error) {
-      console.error("Error loading settings:", error);
+      const initial: { [key: string]: string | number | object | boolean } = {};
+      data?.forEach((s) => (initial[s.code] = s.value));
+      setEditedValues(initial);
+    } catch (e) {
+      console.error("Error loading settings:", e);
     } finally {
       setLoading(false);
     }
   }
 
+  const dirtyKeys = useMemo(
+    () =>
+      settings
+        .filter((s) => editedValues[s.code] !== s.value)
+        .map((s) => s.code),
+    [settings, editedValues],
+  );
+
+  const validationErrors = useMemo(() => {
+    const errs: Record<string, string> = {};
+    for (const s of settings) {
+      const v = editedValues[s.code];
+      const err = validateValue(s, v);
+      if (err && dirtyKeys.includes(s.code)) errs[s.code] = err;
+    }
+    return errs;
+  }, [settings, editedValues, dirtyKeys]);
+
   async function handleSave() {
+    if (Object.keys(validationErrors).length > 0) {
+      setError(
+        "Hay valores inválidos. Revisá los campos marcados en rojo antes de guardar.",
+      );
+      return;
+    }
+    setError(null);
     setSaving(true);
     try {
+      let saved = 0;
       for (const setting of settings) {
         if (editedValues[setting.code] !== setting.value) {
-          setting.value = editedValues[setting.code];
-          if (handleChange(setting)) {
-            const res = await updateConfig(setting);
-            if (res.ack) {
-              notifyError(res.message || "Error al actualizar config");
-              throw new Error(res.message);
-            }
-          } else {
-            setError(`Error en la config ${setting.name}, valor invalido`);
+          const res = await updateConfig({
+            ...setting,
+            value: editedValues[setting.code] as any,
+          });
+          if (res.ack) {
+            notifyError(res.message || "Error al guardar");
+            throw new Error(res.message);
           }
+          saved++;
         }
       }
-      loadSettings();
-      notify("Configuraciones modificadas correctamente");
-    } catch (error) {
-      console.error("Error saving settings:", error);
+      await loadSettings();
+      notify(`${saved} configuracion${saved !== 1 ? "es" : ""} actualizada${saved !== 1 ? "s" : ""}`);
+    } catch (e) {
+      console.error("Error saving settings:", e);
     } finally {
       setSaving(false);
     }
   }
 
-  const filteredSettings =
-    filter === "all" ? settings : settings.filter((s) => s.type === filter);
+  const handleReset = () => {
+    const initial: { [key: string]: string | number | object | boolean } = {};
+    settings.forEach((s) => (initial[s.code] = s.value));
+    setEditedValues(initial);
+    setError(null);
+  };
 
-  const getInputType = (dataType: string) => {
-    switch (dataType) {
-      case "number":
-        return "number";
-      case "boolean":
-        return "checkbox";
-      default:
-        return "text";
+  const grouped = useMemo(() => {
+    const q = search.toLowerCase();
+    const groups: Record<Category, IConfig[]> = {
+      payments: [],
+      schedule: [],
+      public: [],
+      system: [],
+    };
+    for (const s of settings) {
+      if (
+        q &&
+        !s.name.toLowerCase().includes(q) &&
+        !s.code.toLowerCase().includes(q)
+      )
+        continue;
+      groups[getCategory(s.code)].push(s);
     }
-  };
+    return groups;
+  }, [settings, search]);
 
-  const renderValue = (setting: IConfig, value: string) => {
-    if (setting.dataType === "boolean") {
-      return (
-        <input
-          type="checkbox"
-          checked={value === "true"}
-          onChange={(e) =>
-            setEditedValues({
-              ...editedValues,
-              [setting.code]: e.target.checked ? "true" : "false",
-            })
-          }
-          className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-        />
-      );
-    }
-
-    return (
-      <input
-        type={getInputType(setting.dataType)}
-        value={value}
-        onChange={(e) =>
-          setEditedValues({
-            ...editedValues,
-            [setting.code]: e.target.value,
-          })
-        }
-        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-      />
-    );
-  };
-
-  const getTypeColor = (type: string) => {
-    return type === "server"
-      ? "bg-purple-100 text-purple-800 border-purple-300"
-      : "bg-blue-100 text-blue-800 border-blue-300";
-  };
-
-  const getTypeText = (type: string) => {
-    return type === "server" ? "Servidor" : "Cliente";
-  };
+  const visibleCategories = (
+    Object.keys(CATEGORIES) as Category[]
+  ).filter((c) =>
+    activeCategory === "all" ? grouped[c].length > 0 : c === activeCategory,
+  );
 
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-400"></div>
       </div>
     );
   }
 
-  const handleChange = (val: IConfig): boolean => {
-    if (val.code.includes("schedule")) {
-      return isValidRange(val.value as string);
-    } else {
-      return true;
-    }
+  const onChangeValue = (
+    code: string,
+    value: string | number | boolean,
+  ) => {
+    setEditedValues((prev) => ({ ...prev, [code]: value }));
   };
 
-  function isValidRange(input: string): boolean {
-    // regex para un solo rango HH:mm-HH:mm
-    const rangeRegex = /^([01]\d|2[0-3]):([0-5]\d)-([01]\d|2[0-3]):([0-5]\d)$/;
-
-    if (!input || typeof input !== "string") return false;
-
-    // separar por coma y limpiar espacios
-    const ranges = input
-      .split(",")
-      .map((r) => r.trim())
-      .filter((r) => r.length > 0);
-
-    if (ranges.length === 0) return false;
-
-    for (const r of ranges) {
-      if (!rangeRegex.test(r)) return false;
-
-      const [start, end] = r.split("-");
-      const startMinutes = toMinutes(start);
-      const endMinutes = toMinutes(end);
-
-      if (!(startMinutes < endMinutes)) return false; // inicio debe ser menor que fin
-    }
-
-    return true;
-  }
-
-  function toMinutes(hhmm: string) {
-    const [h, m] = hhmm.split(":").map(Number);
-    return h * 60 + m;
-  }
-
   return (
-    <div className="max-w-5xl">
-      <div className="bg-white rounded-lg border border-gray-200 p-8">
-        <div className="flex items-center gap-3 mb-8 pb-6 border-b border-gray-200">
-          <Settings className="w-8 h-8 text-blue-600" />
-          <h2 className="text-3xl font-bold text-gray-900">
+    <div className="max-w-5xl pb-32">
+      <div className="flex items-center gap-3 mb-6">
+        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-pink-300 to-blue-300 flex items-center justify-center text-white">
+          <Settings className="w-5 h-5" />
+        </div>
+        <div>
+          <h2 className="text-2xl font-bold text-gray-800">
             Configuración del Sistema
           </h2>
+          <p className="text-sm text-gray-500">
+            Parámetros de la compañía agrupados por categoría
+          </p>
         </div>
+      </div>
 
-        <div className="mb-6 flex gap-2 flex-wrap">
-          {["all", "server", "client"].map((type) => (
+      <div className="bg-white rounded-xl border border-gray-200 p-4 mb-5 space-y-3">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Buscar configuración..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full pl-10 pr-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-pink-300 focus:border-pink-300"
+          />
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => setActiveCategory("all")}
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+              activeCategory === "all"
+                ? "bg-gradient-to-r from-pink-400 to-blue-400 text-white shadow-md"
+                : "bg-gray-50 text-gray-700 hover:bg-gray-100 border border-gray-200"
+            }`}
+          >
+            Todas
+          </button>
+          {(Object.keys(CATEGORIES) as Category[]).map((cat) => (
             <button
-              key={type}
-              onClick={() => setFilter(type as any)}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                filter === type
-                  ? "bg-blue-600 text-white"
-                  : "bg-white text-gray-700 hover:bg-gray-100 border border-gray-300"
+              key={cat}
+              onClick={() => setActiveCategory(cat)}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${
+                activeCategory === cat
+                  ? "bg-gradient-to-r from-pink-400 to-blue-400 text-white shadow-md"
+                  : "bg-gray-50 text-gray-700 hover:bg-gray-100 border border-gray-200"
               }`}
             >
-              {type === "all" ? "Todas" : getTypeText(type)}
+              {CATEGORIES[cat].icon}
+              {CATEGORIES[cat].label}
+              <span
+                className={`text-xs px-1.5 rounded-full ${
+                  activeCategory === cat ? "bg-white/30" : "bg-gray-200"
+                }`}
+              >
+                {grouped[cat].length}
+              </span>
             </button>
           ))}
         </div>
-        {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex gap-3 mb-6">
-            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <p className="text-red-800 font-medium">Error</p>
-              <p className="text-red-700 text-sm mt-1">{error}</p>
-            </div>
-            <button
-              onClick={() => setError(null)}
-              className="text-red-600 hover:text-red-800"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-        )}
-        <div className="space-y-4">
-          {filteredSettings.length === 0 ? (
-            <div className="text-center py-12 text-gray-500">
-              No hay configuraciones para mostrar
-            </div>
-          ) : (
-            filteredSettings.map((setting) => (
-              <div
-                key={setting.code}
-                className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow"
+      </div>
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex gap-3 mb-5">
+          <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+          <div className="flex-1 text-sm text-red-700">{error}</div>
+          <button
+            onClick={() => setError(null)}
+            className="text-red-600 hover:text-red-800"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      <div className="space-y-5">
+        {visibleCategories.map((cat) => {
+          const meta = CATEGORIES[cat];
+          const items = grouped[cat];
+          if (!items.length) return null;
+
+          // Schedule days: render in compact grid
+          if (cat === "schedule") {
+            const days = items.filter((s) => isScheduleDay(s.code));
+            const others = items.filter((s) => !isScheduleDay(s.code));
+            return (
+              <section
+                key={cat}
+                className="bg-white rounded-xl border border-gray-200 overflow-hidden"
               >
-                <div className="flex justify-between items-start mb-4">
-                  <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-gray-900">
-                      {setting.name}
-                    </h3>
-                    <p className="text-sm text-gray-600 mt-1">
-                      {setting.description}
+                <header
+                  className={`bg-gradient-to-r ${meta.gradient} text-white p-4 flex items-center gap-3`}
+                >
+                  <div className="w-9 h-9 rounded-lg bg-white/20 flex items-center justify-center">
+                    {meta.icon}
+                  </div>
+                  <div>
+                    <h3 className="font-semibold">{meta.label}</h3>
+                    <p className="text-xs text-white/80">
+                      {meta.description}
                     </p>
                   </div>
-                  <span
-                    className={`px-3 py-1 rounded-full text-xs font-medium border ${getTypeColor(
-                      setting.type
-                    )}`}
-                  >
-                    {getTypeText(setting.type)}
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-4">
-                  <div className="flex-1">
-                    {setting.dataType === "boolean" ? (
-                      <div className="flex items-center gap-3">
-                        {renderValue(
-                          setting,
-                          editedValues[setting.code] as string
-                        )}
-                        <span className="text-sm text-gray-700">
-                          {editedValues[setting.code] === "true"
-                            ? "Habilitado"
-                            : "Deshabilitado"}
-                        </span>
+                </header>
+                <div className="p-5 space-y-4">
+                  {others.map((s) => (
+                    <FieldRow
+                      key={s.code}
+                      setting={s}
+                      value={editedValues[s.code] ?? s.value}
+                      onChange={(v) => onChangeValue(s.code, v)}
+                    />
+                  ))}
+                  {days.length > 0 && (
+                    <div>
+                      <p className="text-sm font-medium text-gray-700 mb-2">
+                        Franjas horarias por día
+                      </p>
+                      <p className="text-xs text-gray-500 mb-3">
+                        Formato: HH:mm-HH:mm. Múltiples franjas separadas por
+                        coma. Ej:{" "}
+                        <code className="bg-gray-100 px-1 rounded">
+                          09:00-13:00, 18:00-23:00
+                        </code>
+                      </p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-1">
+                        {days
+                          .sort((a, b) => {
+                            const order = Object.keys(DAY_LABELS);
+                            return (
+                              order.indexOf(a.code) - order.indexOf(b.code)
+                            );
+                          })
+                          .map((s) => (
+                            <FieldRow
+                              key={s.code}
+                              setting={s}
+                              value={editedValues[s.code] ?? s.value}
+                              onChange={(v) => onChangeValue(s.code, v)}
+                              customLabel={DAY_LABELS[s.code] || s.name}
+                            />
+                          ))}
                       </div>
-                    ) : (
-                      <div>
-                        {renderValue(
-                          setting,
-                          editedValues[setting.code] as string
-                        )}
-                        <p className="text-xs text-gray-500 mt-2">
-                          Tipo:{" "}
-                          <span className="font-medium">
-                            {setting.dataType}
-                          </span>
-                        </p>
-                      </div>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))
-          )}
-        </div>
+              </section>
+            );
+          }
 
-        {filteredSettings.length > 0 && (
-          <div className="flex justify-end pt-6 mt-6 border-t border-gray-200">
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="flex items-center gap-2 px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          return (
+            <section
+              key={cat}
+              className="bg-white rounded-xl border border-gray-200 overflow-hidden"
             >
-              <Save className="w-5 h-5" />
-              {saving ? "Guardando..." : "Guardar Configuración"}
-            </button>
+              <header
+                className={`bg-gradient-to-r ${meta.gradient} text-white p-4 flex items-center gap-3`}
+              >
+                <div className="w-9 h-9 rounded-lg bg-white/20 flex items-center justify-center">
+                  {meta.icon}
+                </div>
+                <div>
+                  <h3 className="font-semibold">{meta.label}</h3>
+                  <p className="text-xs text-white/80">
+                    {meta.description}
+                  </p>
+                </div>
+              </header>
+              <div className="p-5 divide-y divide-gray-100">
+                {items.map((s) => (
+                  <FieldRow
+                    key={s.code}
+                    setting={s}
+                    value={editedValues[s.code] ?? s.value}
+                    onChange={(v) => onChangeValue(s.code, v)}
+                  />
+                ))}
+              </div>
+            </section>
+          );
+        })}
+
+        {visibleCategories.length === 0 && (
+          <div className="bg-white rounded-xl border border-gray-200 text-center py-12 text-gray-500">
+            <Settings className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+            No hay configuraciones que coincidan con la búsqueda.
           </div>
         )}
       </div>
-      <Toaster position="bottom-right" />
+
+      {/* Sticky bottom bar with save / reset */}
+      {dirtyKeys.length > 0 && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-30 bg-white border border-gray-200 shadow-lg rounded-full pl-5 pr-2 py-2 flex items-center gap-3">
+          <span className="flex items-center gap-2 text-sm text-gray-700">
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-pink-300 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-pink-400"></span>
+            </span>
+            {dirtyKeys.length} cambio{dirtyKeys.length !== 1 ? "s" : ""} sin
+            guardar
+          </span>
+          <button
+            onClick={handleReset}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+          >
+            <RotateCcw className="w-4 h-4" />
+            Descartar
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={
+              saving || Object.keys(validationErrors).length > 0
+            }
+            className="inline-flex items-center gap-2 px-4 py-1.5 bg-gradient-to-r from-pink-400 to-blue-400 text-white rounded-full text-sm font-semibold hover:from-pink-300 hover:to-blue-300 transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {saving ? (
+              "Guardando..."
+            ) : (
+              <>
+                <Save className="w-4 h-4" />
+                Guardar
+              </>
+            )}
+          </button>
+        </div>
+      )}
+
+      {dirtyKeys.length === 0 && !loading && (
+        <div className="text-center text-xs text-gray-400 mt-6 flex items-center justify-center gap-1.5">
+          <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />
+          Todas las configuraciones están guardadas
+        </div>
+      )}
     </div>
   );
 }

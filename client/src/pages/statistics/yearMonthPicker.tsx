@@ -53,7 +53,7 @@ function MonthYearPicker({
     <div className="relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center space-x-2 bg-white px-4 py-2 rounded-lg shadow-sm border border-gray-200 hover:border-blue-500 transition-colors"
+        className="flex items-center space-x-2 bg-white px-4 py-2 rounded-lg shadow-sm border border-gray-200 hover:border-pink-300 transition-colors"
       >
         <Calendar className="w-4 h-4 text-gray-600" />
         <span className="text-sm text-gray-700">
@@ -101,9 +101,9 @@ function MonthYearPicker({
           </div>
           <button
             onClick={() => setIsOpen(false)}
-            className="w-full bg-blue-500 text-white rounded py-1 text-sm hover:bg-blue-600 transition-colors"
+            className="w-full bg-gradient-to-r from-pink-400 to-blue-400 text-white rounded py-1.5 text-sm font-medium hover:from-pink-300 hover:to-blue-300 transition-all"
           >
-            Apply
+            Aplicar
           </button>
         </div>
       )}

@@ -1,5 +1,5 @@
-import { ChangeEvent, useEffect, useState } from "react";
-import { Pencil, Trash2, Search, Store } from "lucide-react";
+import { ChangeEvent, useEffect, useMemo, useState } from "react";
+import { Pencil, Trash2, Search, Store, Plus, X } from "lucide-react";
 import { Sidebar } from "../../partials/sidebar";
 import Header from "../../partials/headers";
 import { IUnitBusiness } from "../../interfaces/unitBusiness";
@@ -10,373 +10,360 @@ import {
   updateUnitBusiness,
 } from "../../services/unitBusinessService";
 import ModalDelete from "../../components/DeleteModal";
-import toast, { Toaster } from "react-hot-toast";
+import toast from "react-hot-toast";
 
 const notify = (msg: string) => toast.success(msg);
 const notifyError = (msg: string) => toast.error(msg);
+
+const emptyForm: IUnitBusiness = {
+  _id: "",
+  code: "",
+  name: "",
+  description: "",
+  active: true,
+};
 
 const UnitBusiness = () => {
   const [unitBusiness, setUnitBusiness] = useState<IUnitBusiness[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [filter, setFilter] = useState("");
-  const [filterData, setFilterData] = useState<IUnitBusiness[]>([]);
-  const [research, setResearch] = useState<boolean>(true);
-  const [formData, setFormData] = useState<IUnitBusiness>({
-    _id: "",
-    code: "",
-    name: "",
-    description: "",
-    active: true,
-  });
+  const [research, setResearch] = useState(true);
+  const [formData, setFormData] = useState<IUnitBusiness>(emptyForm);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string>("");
 
   useEffect(() => {
-    const fetchUnitBusiness = async () => {
+    const fetch = async () => {
       try {
         const data = (await getUnitBusiness(false)) as IUnitBusiness[];
-        setUnitBusiness(data);
-      } catch (error) {
-        console.error("Error fetching unit business:", error);
+        setUnitBusiness(Array.isArray(data) ? data : []);
+      } catch (e) {
+        console.error("Error fetching unit business:", e);
       }
     };
-    fetchUnitBusiness();
+    fetch();
   }, [research]);
 
   useEffect(() => {
-    if (showModal === false) {
-      setFormData({
-        _id: "",
-        code: "",
-        name: "",
-        description: "",
-        active: true,
-      });
-    }
+    if (!showModal) setFormData(emptyForm);
   }, [showModal]);
 
-  const handleUpdate = (id?: string) => {
-    const unit = unitBusiness.find((u) => u._id === id);
-    if (unit) {
-      setFormData(unit);
+  const filtered = useMemo(() => {
+    if (!filter) return unitBusiness;
+    const q = filter.toLowerCase();
+    return unitBusiness.filter(
+      (u) =>
+        u.name?.toLowerCase().includes(q) || u.code?.toLowerCase().includes(q),
+    );
+  }, [unitBusiness, filter]);
+
+  const filterHandler = (e: ChangeEvent<HTMLInputElement>) =>
+    setFilter(e.target.value);
+
+  const handleEdit = (id?: string) => {
+    const u = unitBusiness.find((x) => x._id === id);
+    if (u) {
+      setFormData(u);
       setShowModal(true);
     }
   };
 
-  const handleAddUnitBusiness = async () => {
+  const handleSave = async () => {
     try {
-      let res;
-      !formData._id
-        ? (res = await createUnitBusiness(formData))
-        : (res = await updateUnitBusiness(formData));
-
-      if (!res.ack) {
-        notify(res.message ? res.message : "ok");
-      } else {
-        notifyError(res.message ? res.message : "Error");
-      }
-    } catch (error) {
-      notifyError(error ? error.toString() : "Error");
+      const res = !formData._id
+        ? await createUnitBusiness(formData)
+        : await updateUnitBusiness(formData);
+      if (!res.ack) notify(res.message || "Guardado");
+      else notifyError(res.message || "Error");
+    } catch (e) {
+      notifyError(e?.toString() || "Error");
     } finally {
       setShowModal(false);
       setResearch(!research);
     }
   };
 
-  const deleteHandler = async () => {
+  const handleDelete = async () => {
     try {
       const res = await deleteUnitBusiness(deleteId);
-      if (res.ack) {
-        notifyError(res.message ? res.message : "error");
-      } else {
-        notify(res.message ? res.message : "ok");
-      }
+      if (res.ack) notifyError(res.message || "Error");
+      else notify(res.message || "Eliminado");
       setDeleteModalOpen(false);
       setResearch(!research);
-    } catch (error) {
-      notifyError(error ? error.toString() : "error");
+    } catch (e) {
+      notifyError(e?.toString() || "Error");
     }
-  };
-
-  const filterHandler = (e: ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setFilter(value);
-    const newUNArray = unitBusiness.filter(
-      (met) =>
-        met.name?.toLocaleLowerCase().includes(value) ||
-        met.code?.toLocaleLowerCase().includes(value)
-    );
-    setFilterData(newUNArray);
   };
 
   return (
     <div className="flex h-screen overflow-hidden">
-      {/* Sidebar */}
       <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
-      {/* Content area */}
       <div className="relative flex flex-col flex-1 overflow-y-auto overflow-x-hidden">
-        {/*  Site header */}
         <Header sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
-        <main>
-          <div className="min-h-screen bg-gray-100 p-8">
-            <div className="mx-auto">
-              <div className="flex justify-between items-center mb-8">
-                <h1 className="text-3xl font-bold text-gray-900">
-                  Unidad de Negocio
+        <main className="bg-gray-50 min-h-full">
+          <div className="p-4 md:p-8 max-w-6xl mx-auto w-full">
+            <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-3 mb-6">
+              <div>
+                <h1 className="text-2xl md:text-3xl font-bold text-gray-800">
+                  Unidades de Negocio
                 </h1>
-                <button
-                  onClick={() => setShowModal(true)}
-                  className="bg-indigo-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-indigo-700 transition-colors"
-                >
-                  <Store className="h-5 w-5" />
-                  Nuevo
-                </button>
+                <p className="text-gray-500 text-sm">
+                  Gestioná las sucursales o locales
+                </p>
               </div>
+              <button
+                onClick={() => setShowModal(true)}
+                className="inline-flex items-center gap-2 bg-gradient-to-r from-pink-400 to-blue-400 text-white px-4 py-2 rounded-lg font-semibold hover:from-pink-300 hover:to-blue-300 transition-all shadow-md"
+              >
+                <Plus className="h-5 w-5" />
+                Nueva unidad
+              </button>
+            </div>
 
-              <div className="mb-4 flex gap-4">
-                <div className="relative flex-1">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Search className="h-5 w-5 text-gray-400" />
-                  </div>
-                  <input
-                    type="text"
-                    placeholder="Filtrar unidad de negocio..."
-                    value={filter}
-                    onChange={(e) => filterHandler(e)}
-                    className="pl-10 w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400"
-                  />
-                </div>
+            <div className="mb-4 relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Filtrar por nombre o código..."
+                value={filter}
+                onChange={filterHandler}
+                className="pl-10 w-full p-2.5 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-pink-300 focus:border-pink-300"
+              />
+            </div>
+
+            {filtered.length === 0 ? (
+              <div className="text-center py-16 bg-white rounded-xl border border-gray-200">
+                <Store className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                <p className="text-gray-500">
+                  No hay unidades de negocio registradas
+                </p>
               </div>
-
-              <div className="bg-white rounded-lg shadow overflow-hidden">
+            ) : (
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Codigo
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        Código
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
                         Nombre
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
                         Estado
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Descripcion
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        Descripción
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">
                         Acciones
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {filter.length === 0
-                      ? unitBusiness.map((unit) => (
-                          <tr key={unit._id} className="hover:bg-gray-50">
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm font-medium text-gray-900">
-                                {unit.code}
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-gray-500">
-                                {unit.name}
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <span
-                                className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-${
-                                  unit.active ? "green" : "red"
-                                }-100 text-${
-                                  unit.active ? "green" : "red"
-                                }-800`}
-                              >
-                                {unit.active === true ? "Activo" : "Inactivo"}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-gray-500">
-                                {unit.description}
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                              <div className="flex space-x-3">
-                                <button
-                                  onClick={() => handleUpdate(unit._id)}
-                                  className="text-indigo-600 hover:text-indigo-900 transition-colors"
-                                >
-                                  <Pencil className="h-5 w-5" />
-                                </button>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setDeleteId(unit._id ? unit._id : "");
-                                    setDeleteModalOpen(true);
-                                  }}
-                                  className="text-red-600 hover:text-red-900 transition-colors"
-                                >
-                                  <Trash2 className="h-5 w-5" />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))
-                      : filterData.map((unit) => (
-                          <tr key={unit._id} className="hover:bg-gray-50">
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm font-medium text-gray-900">
-                                {unit.code}
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-gray-500">
-                                {unit.name}
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <span
-                                className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-${
-                                  unit.active ? "green" : "red"
-                                }-100 text-${
-                                  unit.active ? "green" : "red"
-                                }-800`}
-                              >
-                                {unit.active === true ? "Activo" : "Inactivo"}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-gray-500">
-                                {unit.description}
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                              <div className="flex space-x-3">
-                                <button
-                                  onClick={() => handleUpdate(unit._id)}
-                                  className="text-indigo-600 hover:text-indigo-900 transition-colors"
-                                >
-                                  <Pencil className="h-5 w-5" />
-                                </button>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setDeleteId(unit._id ? unit._id : "");
-                                    setDeleteModalOpen(true);
-                                  }}
-                                  className="text-red-600 hover:text-red-900 transition-colors"
-                                >
-                                  <Trash2 className="h-5 w-5" />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
+                  <tbody className="bg-white divide-y divide-gray-100">
+                    {filtered.map((unit) => (
+                      <tr key={unit._id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-800">
+                          {unit.code}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                          {unit.name}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span
+                            className={`px-2.5 py-0.5 inline-flex text-xs font-semibold rounded-full ${
+                              unit.active
+                                ? "bg-green-100 text-green-700"
+                                : "bg-red-100 text-red-700"
+                            }`}
+                          >
+                            {unit.active ? "Activa" : "Inactiva"}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                          {unit.description}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <div className="inline-flex gap-1">
+                            <button
+                              onClick={() => handleEdit(unit._id)}
+                              className="p-2 text-pink-500 hover:bg-pink-50 rounded-lg transition-colors"
+                              title="Editar"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                setDeleteId(unit._id || "");
+                                setDeleteModalOpen(true);
+                              }}
+                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              title="Eliminar"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
+            )}
 
-              {showModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-                  <div className="bg-white rounded-lg p-8 max-w-md w-full">
-                    <h2 className="text-2xl font-bold mb-4">
-                      Agregar Unidad de Negocio
-                    </h2>
-                    <div className="space-y-4">
+            {showModal && (
+              <div
+                className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+                onClick={() => setShowModal(false)}
+              >
+                <div
+                  className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="bg-gradient-to-r from-pink-300 to-blue-300 text-white p-5 rounded-t-2xl flex items-center justify-between sticky top-0 z-10">
+                    <div className="flex items-center gap-3">
+                      <span className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+                        <Store className="w-5 h-5" />
+                      </span>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700">
-                          Nombre
+                        <h2 className="text-xl font-bold leading-tight">
+                          {formData._id ? "Editar" : "Nueva"} unidad de negocio
+                        </h2>
+                        <p className="text-xs text-white/80">
+                          Sucursal, local o punto de venta
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setShowModal(false)}
+                      className="hover:bg-white/20 rounded-full p-1.5 transition-colors"
+                      aria-label="Cerrar"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      handleSave();
+                    }}
+                    className="p-6 space-y-4"
+                  >
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div className="sm:col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Nombre <span className="text-red-500">*</span>
                         </label>
                         <input
                           type="text"
                           required
+                          placeholder="Ej: Sucursal Centro"
                           value={formData.name}
                           onChange={(e) =>
                             setFormData({ ...formData, name: e.target.value })
                           }
-                          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2 border"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-300 focus:border-pink-300"
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700">
-                          Código
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Código <span className="text-red-500">*</span>
                         </label>
                         <input
                           type="text"
                           required
+                          placeholder="Ej: SUC01"
                           value={formData.code}
                           onChange={(e) =>
-                            setFormData({ ...formData, code: e.target.value })
-                          }
-                          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2 border"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700">
-                          Descripcion
-                        </label>
-                        <input
-                          type="text"
-                          required
-                          value={formData.description}
-                          onChange={(e) =>
                             setFormData({
                               ...formData,
-                              description: e.target.value,
+                              code: e.target.value.toUpperCase(),
                             })
                           }
-                          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2 border"
+                          disabled={!!formData._id}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-300 focus:border-pink-300 font-mono text-sm disabled:bg-gray-50 disabled:text-gray-500"
                         />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700">
-                          Estado
-                        </label>
-                        <select
-                          value={formData.active.valueOf().toString()}
-                          onChange={(e) =>
-                            setFormData({
-                              ...formData,
-                              active: e.target.value === "true",
-                            })
-                          }
-                          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2 border"
-                        >
-                          <option value={"true"}>Activo</option>
-                          <option value={"false"}>Inactivo</option>
-                        </select>
-                      </div>
-                      <div className="flex justify-end space-x-3">
-                        <button
-                          type="button"
-                          onClick={() => setShowModal(false)}
-                          className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-                        >
-                          Cancelar
-                        </button>
-                        <button
-                          type="button"
-                          className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
-                          onClick={handleAddUnitBusiness}
-                        >
-                          Guardar
-                        </button>
+                        {formData._id && (
+                          <p className="text-xs text-gray-400 mt-1">
+                            No editable
+                          </p>
+                        )}
                       </div>
                     </div>
-                  </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Descripción
+                      </label>
+                      <textarea
+                        rows={3}
+                        placeholder="Dirección, referencias u observaciones internas"
+                        value={formData.description}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            description: e.target.value,
+                          })
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-300 focus:border-pink-300 resize-none"
+                      />
+                    </div>
+                    <div className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-lg px-4 py-3">
+                      <div>
+                        <p className="text-sm font-medium text-gray-800">
+                          Unidad activa
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          Las inactivas no aparecen como opción al reservar
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setFormData({ ...formData, active: !formData.active })
+                        }
+                        className={`relative inline-flex h-6 w-11 flex-shrink-0 rounded-full transition-colors ${
+                          formData.active
+                            ? "bg-gradient-to-r from-pink-400 to-blue-400"
+                            : "bg-gray-300"
+                        }`}
+                        aria-label="Toggle activa"
+                      >
+                        <span
+                          className={`inline-block h-5 w-5 rounded-full bg-white shadow transform transition-transform mt-0.5 ${
+                            formData.active ? "translate-x-5" : "translate-x-0.5"
+                          }`}
+                        />
+                      </button>
+                    </div>
+                    <div className="flex justify-end gap-2 pt-4 border-t border-gray-100">
+                      <button
+                        type="button"
+                        onClick={() => setShowModal(false)}
+                        className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="submit"
+                        className="px-4 py-2 bg-gradient-to-r from-pink-400 to-blue-400 text-white rounded-lg font-semibold hover:from-pink-300 hover:to-blue-300 transition-all shadow-md"
+                      >
+                        Guardar
+                      </button>
+                    </div>
+                  </form>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
           <ModalDelete
             id="delete-modal"
             modalOpen={deleteModalOpen}
             setModalOpen={setDeleteModalOpen}
-            deleteFn={deleteHandler}
+            deleteFn={handleDelete}
           />
         </main>
       </div>
-      <Toaster position="bottom-right" />
     </div>
   );
 };

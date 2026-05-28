@@ -7,6 +7,7 @@ import UserController from "./controllers/user";
 import { AuthenticationController } from "./controllers/authentication";
 import { TableController } from "./controllers/tables";
 import { ConfigController } from "./controllers/config";
+import { PaymentsController } from "./controllers/payments";
 
 /**
  * Declaracion de Rutas.
@@ -129,6 +130,42 @@ const routes = defineRoutes([
         controller: ShiftController.getAvaliableShifts,
         auth: false,
       },
+      {
+        path: "/shifts/checkout",
+        label: "Turnos",
+        method: "post",
+        controller: ShiftController.checkout,
+        auth: false,
+      },
+      {
+        path: "/shifts/:id/payment-status",
+        label: "Turnos",
+        method: "get",
+        controller: ShiftController.paymentStatus,
+        auth: false,
+      },
+      // Pagos Mercado Pago
+      {
+        path: "/payments/mercadopago",
+        label: "Pagos",
+        method: "get",
+        controller: PaymentsController.listMercadoPago,
+        auth: true,
+      },
+      {
+        path: "/payments/mercadopago/webhook",
+        label: "Pagos",
+        method: "post",
+        controller: PaymentsController.mercadoPagoWebhook,
+        auth: false,
+      },
+      {
+        path: "/shifts/:id/link-payment",
+        label: "Pagos",
+        method: "post",
+        controller: PaymentsController.linkPayment,
+        auth: true,
+      },
       // Unidad de negocios
       {
         path: "/unitBusiness",
@@ -142,7 +179,7 @@ const routes = defineRoutes([
         label: "Unidad de Negocio",
         method: "get",
         controller: UnitBusinessController.find,
-        auth: true,
+        auth: false,
       },
       {
         path: "/unitBusiness",

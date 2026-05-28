@@ -15,7 +15,7 @@ import {
   getShifts,
   updateShift,
 } from "../../../services/shiftService";
-import toast, { Toaster } from "react-hot-toast";
+import toast from "react-hot-toast";
 import moment from "moment";
 import { IUnitBusiness } from "../../../interfaces/unitBusiness";
 import { getUnitBusiness } from "../../../services/unitBusinessService";
@@ -152,39 +152,47 @@ function CalendarMenu() {
     <div>
       <div className="min-h-screen bg-gray-50 p-4">
         <div className="mx-auto">
-          <div className="flex items-right  justify-between mb-2">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
             <div className="flex items-center gap-2">
-              <CalendarIcon className="w-5 h-5 text-blue-600" />
-              <span className="text-lg font-medium text-gray-900">
+              <CalendarIcon className="w-5 h-5 text-pink-400" />
+              <span className="text-lg font-semibold text-gray-800 capitalize">
                 {currentDate.toLocaleDateString("es-ES", {
+                  weekday: "long",
+                  day: "numeric",
                   month: "long",
                   year: "numeric",
                 })}
               </span>
             </div>
-            <div className="flex items-center">
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handlePreviousDay}
-                  className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-                >
-                  <ChevronLeft className="w-5 h-5" />
-                </button>
-                <input
-                  type="date"
-                  value={format(new Date(currentDate), "yyyy-MM-dd", {
-                    locale: es,
-                  })}
-                  onChange={(e) => setCurrentDate(new Date(e.target.value))}
-                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-                <button
-                  onClick={handleNextDay}
-                  className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-                >
-                  <ChevronRight className="w-5 h-5" />
-                </button>
-              </div>
+            <div className="flex items-center gap-2 bg-white rounded-lg shadow-sm border border-gray-200 px-2 py-1">
+              <button
+                onClick={handlePreviousDay}
+                className="p-2 hover:bg-gray-100 rounded-md transition-colors"
+                aria-label="Día anterior"
+              >
+                <ChevronLeft className="w-5 h-5 text-gray-600" />
+              </button>
+              <input
+                type="date"
+                value={format(new Date(currentDate), "yyyy-MM-dd", {
+                  locale: es,
+                })}
+                onChange={(e) => setCurrentDate(new Date(e.target.value))}
+                className="px-3 py-1.5 border-0 focus:ring-0 text-gray-700 bg-transparent"
+              />
+              <button
+                onClick={handleNextDay}
+                className="p-2 hover:bg-gray-100 rounded-md transition-colors"
+                aria-label="Día siguiente"
+              >
+                <ChevronRight className="w-5 h-5 text-gray-600" />
+              </button>
+              <button
+                onClick={() => setCurrentDate(new Date())}
+                className="ml-1 px-3 py-1.5 text-sm font-medium text-pink-500 hover:bg-pink-50 rounded-md transition-colors"
+              >
+                Hoy
+              </button>
             </div>
           </div>
 
@@ -219,7 +227,6 @@ function CalendarMenu() {
         setModalOpen={setDeleteModalOpen}
         deleteFn={deleteHandler}
       />
-      <Toaster position="bottom-right" />
     </div>
   );
 }

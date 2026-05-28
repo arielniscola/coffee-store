@@ -77,6 +77,51 @@ export const DEFAULT_COMPANY_SETTINGS = [
     description: "Horarios para dia Sabados. Ej. 14:00-18:00, 20:00-23:00",
   },
   {
+    code: "mpAccessToken",
+    type: "company",
+    dataType: "string",
+    name: "Mercado Pago - Access Token",
+    value: "-",
+    description:
+      "Access token de Mercado Pago (TEST-... para pruebas, APP_USR-... para producción).",
+  },
+  {
+    code: "publicBaseUrl",
+    type: "company",
+    dataType: "string",
+    name: "URL pública del sitio",
+    value: "http://localhost:5173",
+    description:
+      "URL base de la landing, se usa para los redirects de Mercado Pago.",
+  },
+  {
+    code: "priceAdult",
+    type: "company",
+    dataType: "number",
+    name: "Precio por adulto",
+    value: 0,
+    description:
+      "Precio de la reserva por cada adulto. Se muestra al cliente al reservar y se guarda como total en la reserva.",
+  },
+  {
+    code: "priceChild",
+    type: "company",
+    dataType: "number",
+    name: "Precio por niño",
+    value: 0,
+    description:
+      "Precio de la reserva por cada niño. Se suma al total al momento de reservar.",
+  },
+  {
+    code: "whatsappNumber",
+    type: "company",
+    dataType: "string",
+    name: "Número de WhatsApp del negocio",
+    value: "",
+    description:
+      "Número en formato internacional sin + ni espacios (ej. 5492611234567). Se usa para los links wa.me en los mensajes de reserva.",
+  },
+  {
     code: "scheduleDaySunday",
     type: "company",
     dataType: "string",

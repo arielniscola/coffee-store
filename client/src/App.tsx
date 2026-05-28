@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { Outlet, useLocation } from "react-router-dom";
+import { Toaster } from "react-hot-toast";
 
 import "./css/style.css";
 import { UserProvider } from "./context/useAuth";
@@ -17,6 +18,7 @@ function App() {
   return (
     <UserProvider>
       <Outlet />
+      <Toaster position="top-center" />
     </UserProvider>
   );
 }

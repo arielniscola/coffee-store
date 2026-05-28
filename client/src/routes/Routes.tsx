@@ -11,6 +11,8 @@ import { ShiftView } from "../pages/shift";
 import LandingPage from "../pages/landingPage/LandingPage";
 import Tables from "../pages/tables";
 import CompanyConfig from "../pages/company";
+import PaymentResult from "../pages/PaymentResult";
+import MpPayments from "../pages/payments/MpPayments";
 
 export const router = createBrowserRouter([
   {
@@ -18,6 +20,7 @@ export const router = createBrowserRouter([
     element: <App />,
     children: [
       { path: "reservas", element: <LandingPage /> },
+      { path: "payment-result", element: <PaymentResult /> },
       { path: "login", element: <Login /> },
       {
         path: "",
@@ -72,6 +75,14 @@ export const router = createBrowserRouter([
         element: (
           <ProtectedRoute>
             <CompanyConfig />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/payments/mercadopago",
+        element: (
+          <ProtectedRoute>
+            <MpPayments />
           </ProtectedRoute>
         ),
       },

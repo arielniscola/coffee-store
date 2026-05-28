@@ -1,6 +1,7 @@
 import { Coffeshop, defineOptions } from ".";
 import dotenv from "dotenv";
 import routes from "./routes";
+import { paymentReconciler } from "./services/paymentReconciler";
 
 dotenv.config();
 
@@ -24,4 +25,9 @@ const CONFIGS = defineOptions({
 (async () => {
   const coffeeshop = new Coffeshop(CONFIGS);
   await coffeeshop.init();
+  // Red de seguridad por si falla el webhook de Mercado Pago.
+  const reconcileMs = process.env.MP_RECONCILE_INTERVAL_MS
+    ? parseInt(process.env.MP_RECONCILE_INTERVAL_MS)
+    : 5 * 60 * 1000;
+  paymentReconciler.start(reconcileMs);
 })();

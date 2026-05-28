@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Calendar,
   Clock,
@@ -8,9 +8,10 @@ import {
   Trash2,
   Check,
   X,
-  CalendarIcon,
   ChevronLeft,
   ChevronRight,
+  Search,
+  DollarSign,
 } from "lucide-react";
 import {
   deleteShift,
@@ -19,23 +20,84 @@ import {
 } from "../../../services/shiftService";
 import { IShift } from "../../../interfaces/shift";
 import { addDays, format } from "date-fns";
-import toast, { Toaster } from "react-hot-toast";
+import toast from "react-hot-toast";
 import ModalDelete from "../../../components/DeleteModal";
 
 const notify = (msg: string) => toast.success(msg);
 const notifyError = (msg: string) => toast.error(msg);
+
+type StatusFilter =
+  | "all"
+  | "toConfirm"
+  | "pendingPayment"
+  | "confirmed"
+  | "cancelled"
+  | "completed"
+  | "paid";
+
+const STATUS_META: Record<
+  string,
+  { label: string; badge: string; dot: string }
+> = {
+  toConfirm: {
+    label: "Pendiente",
+    badge: "bg-yellow-100 text-yellow-800 border-yellow-300",
+    dot: "bg-yellow-400",
+  },
+  pendingPayment: {
+    label: "Esperando pago",
+    badge: "bg-orange-100 text-orange-800 border-orange-300",
+    dot: "bg-orange-400",
+  },
+  confirmed: {
+    label: "Confirmado",
+    badge: "bg-blue-100 text-blue-800 border-blue-300",
+    dot: "bg-blue-400",
+  },
+  paid: {
+    label: "Pagado",
+    badge: "bg-green-100 text-green-800 border-green-300",
+    dot: "bg-green-400",
+  },
+  cancelled: {
+    label: "Cancelado",
+    badge: "bg-red-100 text-red-800 border-red-300",
+    dot: "bg-red-400",
+  },
+  completed: {
+    label: "Completado",
+    badge: "bg-gray-100 text-gray-800 border-gray-300",
+    dot: "bg-gray-400",
+  },
+  debt: {
+    label: "Impaga",
+    badge: "bg-orange-100 text-orange-800 border-orange-300",
+    dot: "bg-orange-400",
+  },
+};
+
+const FILTERS: { key: StatusFilter; label: string }[] = [
+  { key: "all", label: "Todas" },
+  { key: "toConfirm", label: "Pendientes" },
+  { key: "pendingPayment", label: "Esperando pago" },
+  { key: "confirmed", label: "Confirmadas" },
+  { key: "paid", label: "Pagadas" },
+  { key: "cancelled", label: "Canceladas" },
+  { key: "completed", label: "Completadas" },
+];
 
 export function ReservationList() {
   const [reservations, setReservations] = useState<IShift[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string>("");
-  const [filter, setFilter] = useState<
-    "all" | "toConfirm" | "confirmed" | "cancelled" | "completed"
-  >("all");
+  const [filter, setFilter] = useState<StatusFilter>("all");
+  const [search, setSearch] = useState("");
   const [currentDate, setCurrentDate] = useState(new Date());
+
   useEffect(() => {
     loadReservations();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentDate]);
 
   async function loadReservations() {
@@ -43,271 +105,274 @@ export function ReservationList() {
       setLoading(true);
       const data = (await getShifts(
         format(currentDate, "yyyy-MM-dd"),
-        "LOC1"
       )) as IShift[];
-      setReservations(data);
+      setReservations(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Error loading reservations:", error);
     } finally {
       setLoading(false);
     }
   }
-  const handlePreviousDay = () => {
-    setCurrentDate(addDays(currentDate, -1));
-  };
 
-  const handleNextDay = () => {
-    setCurrentDate(addDays(currentDate, 1));
-  };
+  const counts = useMemo(() => {
+    const acc: Record<string, number> = { all: reservations.length };
+    for (const r of reservations) acc[r.status] = (acc[r.status] || 0) + 1;
+    return acc;
+  }, [reservations]);
+
+  const filtered = useMemo(() => {
+    const byStatus =
+      filter === "all"
+        ? reservations
+        : reservations.filter((r) => r.status === filter);
+    if (!search.trim()) return byStatus;
+    const q = search.toLowerCase();
+    return byStatus.filter(
+      (r) =>
+        r.client?.toLowerCase().includes(q) ||
+        r.email?.toLowerCase().includes(q) ||
+        r.phoneNumber?.includes(q),
+    );
+  }, [reservations, filter, search]);
 
   const deleteReservation = async () => {
     try {
       const res = await deleteShift(deleteId);
       if (res.ack) {
         notifyError(res.message || "Error al eliminar reserva");
-        console.error("Error delete reservation:", res.message);
         return;
-      } else {
-        notify("Reserva eliminada correctamente");
       }
+      notify("Reserva eliminada correctamente");
+      loadReservations();
     } catch (error) {
       console.error("Error deleting reservation:", error);
     }
   };
 
-  async function updateStatus(shift: Partial<IShift>, status: string) {
+  async function updateStatus(shift: IShift, status: string) {
     try {
-      shift.status = status;
-      const res = await updateShift(shift);
+      const res = await updateShift({ ...shift, status });
       if (res.ack) {
         notifyError(res.message || "Error al actualizar reserva");
-        console.error("Error updating status:", res.message);
         return;
-      } else {
-        notify("Reserva actualizada correctamente");
       }
+      notify("Reserva actualizada correctamente");
       loadReservations();
     } catch (error) {
       console.error("Error updating status:", error);
     }
   }
 
-  const filteredReservations =
-    filter === "all"
-      ? reservations
-      : reservations.filter((r) => r.status === filter);
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "toConfirm":
-        return "bg-yellow-100 text-yellow-800 border-yellow-300";
-      case "confirmed":
-        return "bg-blue-100 text-blue-800 border-blue-300";
-      case "paid":
-        return "bg-green-100 text-green-800 border-green-300";
-      case "cancelled":
-        return "bg-red-100 text-red-800 border-red-300";
-      case "debt":
-        return "bg-orange-100 text-orange-800 border-orange-300";
-      default:
-        return "bg-gray-100 text-gray-800 border-gray-300";
-    }
+  const formatShiftDate = (d: string) => {
+    const date = new Date(d);
+    return `${String(date.getUTCDate()).padStart(2, "0")}/${String(
+      date.getUTCMonth() + 1,
+    ).padStart(2, "0")}/${date.getUTCFullYear()}`;
   };
-
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case "toConfirm":
-        return "Pendiente";
-      case "paid":
-        return "Pagado";
-      case "confirmed":
-        return "Confirmado";
-      case "cancelled":
-        return "Cancelado";
-      case "completed":
-        return "Completado";
-      case "debt":
-        return "Impaga";
-      default:
-        return status;
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
-    );
-  }
 
   return (
-    <div className="space-y-4 p-6 bg-gray-100 min-h-screen">
-      <div className="flex items-right  justify-between mb-2">
-        <div className="flex items-center gap-2">
-          <CalendarIcon className="w-5 h-5 text-blue-600" />
-          <span className="text-lg font-medium text-gray-900">
+    <div className="space-y-5 p-4 md:p-6 bg-gray-50 min-h-screen">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-800">
+            Reservas
+          </h1>
+          <p className="text-gray-500 text-sm capitalize">
             {currentDate.toLocaleDateString("es-ES", {
+              weekday: "long",
+              day: "numeric",
               month: "long",
               year: "numeric",
             })}
-          </span>
+          </p>
         </div>
-        <div className="flex items-center">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handlePreviousDay}
-              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-            >
-              <ChevronLeft className="w-5 h-5" />
-            </button>
-            <input
-              type="date"
-              value={format(new Date(currentDate), "yyyy-MM-dd")}
-              onChange={(e) => setCurrentDate(new Date(e.target.value))}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
-            <button
-              onClick={handleNextDay}
-              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-            >
-              <ChevronRight className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-      </div>
-      <div className="flex gap-2 flex-wrap">
-        {[
-          "all",
-          "toConfirm",
-          "confirmed",
-          "cancelled",
-          "completed",
-          "paid",
-        ].map((status) => (
+        <div className="flex items-center gap-2 bg-white rounded-lg shadow-sm border border-gray-200 px-2 py-1">
           <button
-            key={status}
-            onClick={() => setFilter(status as any)}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-              filter === status
-                ? "bg-blue-600 text-white"
-                : "bg-white text-gray-700 hover:bg-gray-100 border border-gray-300"
-            }`}
+            onClick={() => setCurrentDate(addDays(currentDate, -1))}
+            className="p-2 hover:bg-gray-100 rounded-md transition-colors"
+            aria-label="Día anterior"
           >
-            {status === "all" ? "Todas" : getStatusText(status)}
+            <ChevronLeft className="w-5 h-5 text-gray-600" />
           </button>
-        ))}
+          <input
+            type="date"
+            value={format(currentDate, "yyyy-MM-dd")}
+            onChange={(e) => setCurrentDate(new Date(e.target.value))}
+            className="px-3 py-1.5 border-0 focus:ring-0 text-gray-700 bg-transparent"
+          />
+          <button
+            onClick={() => setCurrentDate(addDays(currentDate, 1))}
+            className="p-2 hover:bg-gray-100 rounded-md transition-colors"
+            aria-label="Día siguiente"
+          >
+            <ChevronRight className="w-5 h-5 text-gray-600" />
+          </button>
+          <button
+            onClick={() => setCurrentDate(new Date())}
+            className="ml-1 px-3 py-1.5 text-sm font-medium text-pink-500 hover:bg-pink-50 rounded-md transition-colors"
+          >
+            Hoy
+          </button>
+        </div>
       </div>
 
-      <div className="grid gap-4">
-        {filteredReservations.length === 0 ? (
-          <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
-            <p className="text-gray-500">No hay reservas para mostrar</p>
-          </div>
-        ) : (
-          filteredReservations.map((reservation) => (
-            <div
-              key={reservation._id}
-              className="bg-white rounded-lg border border-gray-200 p-3 hover:shadow-md transition-shadow"
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+        <input
+          type="text"
+          placeholder="Buscar por cliente, email o teléfono..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-pink-300 focus:border-pink-300"
+        />
+      </div>
+
+      <div className="flex gap-2 flex-wrap">
+        {FILTERS.map((f) => {
+          const count = counts[f.key] || 0;
+          const active = filter === f.key;
+          return (
+            <button
+              key={f.key}
+              onClick={() => setFilter(f.key)}
+              className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${
+                active
+                  ? "bg-gradient-to-r from-pink-400 to-blue-400 text-white shadow-md"
+                  : "bg-white text-gray-700 hover:bg-gray-50 border border-gray-200"
+              }`}
             >
-              <div className="flex justify-between items-start mb-4">
-                <div className="flex items-center gap-3">
-                  <h3 className="text-xl font-semibold text-gray-900">
-                    {reservation.client}
-                  </h3>
-
-                  <span
-                    className={`px-3 py-1 rounded-full text-sm font-medium border ${getStatusColor(
-                      reservation.status
-                    )}`}
-                  >
-                    {getStatusText(reservation.status)}
-                  </span>
-                </div>
-                <div className="flex gap-2">
-                  {reservation.status === "toConfirm" && (
-                    <>
-                      <button
-                        onClick={() => updateStatus(reservation, "confirmed")}
-                        className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                        title="Confirmar"
-                      >
-                        <Check className="w-5 h-5" />
-                      </button>
-                      <button
-                        onClick={() => updateStatus(reservation, "cancelled")}
-                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Cancelar"
-                      >
-                        <X className="w-5 h-5" />
-                      </button>
-                    </>
-                  )}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setDeleteModalOpen(true);
-                      setDeleteId(reservation._id || "");
-                    }}
-                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                    title="Eliminar"
-                  >
-                    <Trash2 className="w-5 h-5" />
-                  </button>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-gray-700">
-                    <Calendar className="w-4 h-4" />
-                    <span className="text-sm">
-                      {new Date(reservation.date).getUTCDate()}-
-                      {new Date(reservation.date).getUTCMonth() + 1}-
-                      {new Date(reservation.date).getUTCFullYear()}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 text-gray-700">
-                    <Clock className="w-4 h-4" />
-                    <span className="text-sm">
-                      {reservation.timeStart || "N/A"}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 text-gray-700">
-                    <Users className="w-4 h-4" />
-                    <span className="text-sm">
-                      {reservation.adultsQty ?? reservation.peopleQty ?? 0} adulto{(reservation.adultsQty ?? reservation.peopleQty ?? 0) !== 1 ? 's' : ''}
-                      {(reservation.childrenQty ?? 0) > 0 && `, ${reservation.childrenQty} niño${reservation.childrenQty !== 1 ? 's' : ''}`}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-gray-700">
-                    <Mail className="w-4 h-4" />
-                    <span className="text-sm">{reservation.email}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-gray-700">
-                    <Phone className="w-4 h-4" />
-                    <span className="text-sm">{reservation.phoneNumber}</span>
-                  </div>
-                </div>
-              </div>
-
-              {reservation.description && (
-                <div className="mt-4 pt-4 border-t border-gray-200">
-                  <p className="text-sm text-gray-600">
-                    <span className="font-medium">Notas:</span>{" "}
-                    {reservation.description}
-                  </p>
-                </div>
-              )}
-            </div>
-          ))
-        )}
+              {f.label}
+              <span
+                className={`ml-2 inline-flex items-center justify-center min-w-[1.5rem] px-1.5 text-xs rounded-full ${
+                  active ? "bg-white/30" : "bg-gray-100 text-gray-600"
+                }`}
+              >
+                {count}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
-      <Toaster position="bottom-right" />
+      {loading ? (
+        <div className="flex justify-center items-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-400"></div>
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="text-center py-16 bg-white rounded-lg border border-gray-200">
+          <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+          <p className="text-gray-500">No hay reservas para mostrar</p>
+        </div>
+      ) : (
+        <div className="grid gap-3">
+          {filtered.map((r) => {
+            const meta = STATUS_META[r.status] || STATUS_META.completed;
+            const adults = r.adultsQty ?? r.peopleQty ?? 0;
+            const children = r.childrenQty ?? 0;
+            return (
+              <div
+                key={r._id}
+                className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md transition-shadow"
+              >
+                <div className="flex justify-between items-start mb-3 flex-wrap gap-2">
+                  <div className="flex items-center gap-3">
+                    <span className={`w-2 h-2 rounded-full ${meta.dot}`} />
+                    <h3 className="text-lg font-semibold text-gray-800">
+                      {r.client || "Sin nombre"}
+                    </h3>
+                    <span
+                      className={`px-2.5 py-0.5 rounded-full text-xs font-medium border ${meta.badge}`}
+                    >
+                      {meta.label}
+                    </span>
+                  </div>
+                  <div className="flex gap-1">
+                    {r.status === "toConfirm" && (
+                      <>
+                        <button
+                          onClick={() => updateStatus(r, "confirmed")}
+                          className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                          title="Confirmar"
+                        >
+                          <Check className="w-5 h-5" />
+                        </button>
+                        <button
+                          onClick={() => updateStatus(r, "cancelled")}
+                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Cancelar"
+                        >
+                          <X className="w-5 h-5" />
+                        </button>
+                      </>
+                    )}
+                    <button
+                      onClick={() => {
+                        setDeleteId(r._id || "");
+                        setDeleteModalOpen(true);
+                      }}
+                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      title="Eliminar"
+                    >
+                      <Trash2 className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                  <div className="flex items-center gap-2 text-gray-600">
+                    <Calendar className="w-4 h-4 text-gray-400" />
+                    {formatShiftDate(r.date)}
+                  </div>
+                  <div className="flex items-center gap-2 text-gray-600">
+                    <Mail className="w-4 h-4 text-gray-400" />
+                    <span className="truncate">{r.email}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-gray-600">
+                    <Clock className="w-4 h-4 text-gray-400" />
+                    {r.timeStart || "N/A"}
+                  </div>
+                  <div className="flex items-center gap-2 text-gray-600">
+                    <Phone className="w-4 h-4 text-gray-400" />
+                    {r.phoneNumber}
+                  </div>
+                  <div className="flex items-center gap-2 text-gray-600">
+                    <Users className="w-4 h-4 text-gray-400" />
+                    {adults} adulto{adults !== 1 ? "s" : ""}
+                    {children > 0 &&
+                      `, ${children} niño${children !== 1 ? "s" : ""}`}
+                  </div>
+                  {(r.price || 0) > 0 && (
+                    <div className="flex items-center gap-2 text-gray-600">
+                      <DollarSign className="w-4 h-4 text-gray-400" />
+                      <span className="font-semibold text-gray-700">
+                        ${r.price?.toFixed(2)}
+                      </span>
+                      {r.paymentId && (
+                        <span
+                          className="text-xs text-gray-400 truncate"
+                          title={r.paymentId}
+                        >
+                          · MP {String(r.paymentId).slice(-8)}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {r.description && (
+                  <div className="mt-3 pt-3 border-t border-gray-100">
+                    <p className="text-sm text-gray-600">
+                      <span className="font-medium">Notas:</span>{" "}
+                      {r.description}
+                    </p>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       <ModalDelete
         id="delete-modal-shift"
         modalOpen={deleteModalOpen}

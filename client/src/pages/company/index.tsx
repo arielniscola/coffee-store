@@ -37,7 +37,7 @@ function CompanyConfig() {
                         onClick={() => setCurrentView(tab.id)}
                         className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-colors ${
                           currentView === tab.id
-                            ? "bg-blue-600 text-white"
+                            ? "bg-gradient-to-r from-pink-400 to-blue-400 text-white shadow-md"
                             : "text-gray-600 hover:bg-gray-100"
                         }`}
                       >

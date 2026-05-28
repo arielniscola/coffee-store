@@ -4,12 +4,17 @@ interface informationModalProps {
   isOpen: boolean;
   onClose: () => void;
   setFormOpen: (val: boolean) => void;
+  priceChild?: number;
 }
+
+const formatPrice = (n: number) =>
+  n.toLocaleString("es-AR", { maximumFractionDigits: 0 });
 
 export default function InformationModal({
   isOpen,
   onClose,
   setFormOpen,
+  priceChild = 0,
 }: informationModalProps) {
   if (!isOpen) return null;
 
@@ -66,8 +71,9 @@ export default function InformationModal({
                   horas (ingresos y salidas puntuales).
                 </li>
                 <li>
-                  • Cada niño abona un monto de $ 10.000, (talleres $15.000)
-                  esta entrada incluye las siguientes consumiciones:
+                  • Cada niño abona un monto de ${formatPrice(priceChild)},
+                  (talleres $15.000) esta entrada incluye las siguientes
+                  consumiciones:
                   <ul>
                     <li>
                       {" "}

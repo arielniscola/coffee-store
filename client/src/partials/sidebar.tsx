@@ -3,7 +3,22 @@ import { NavLink, useLocation } from "react-router-dom";
 
 import React from "react";
 import SidebarLinkGroup from "./SiderbarLinkGroup";
-import { ChartNoAxesCombined, NotebookPen, Settings } from "lucide-react";
+import {
+  ChartNoAxesCombined,
+  CreditCard,
+  NotebookPen,
+  Settings,
+  Home,
+  Wallet,
+  Store,
+  Coffee,
+  Building2,
+  LogOut,
+  User as UserIcon,
+  ChevronDown,
+} from "lucide-react";
+import { useAuth } from "../context/useAuth";
+
 interface SidebarProps {
   sidebarOpen: boolean;
   setSidebarOpen: (open: boolean) => void;
@@ -15,12 +30,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const location = useLocation();
   const { pathname } = location;
+  const { user, logout } = useAuth();
   const trigger = useRef<HTMLButtonElement>(null);
   const sidebar = useRef<HTMLDivElement>(null);
 
   const storedSidebarExpanded = localStorage.getItem("sidebar-expanded");
   const [sidebarExpanded, setSidebarExpanded] = useState(
-    storedSidebarExpanded === null ? false : storedSidebarExpanded === "true"
+    storedSidebarExpanded === null ? false : storedSidebarExpanded === "true",
   );
 
   // close on click outside
@@ -59,6 +75,28 @@ export const Sidebar: React.FC<SidebarProps> = ({
       if (elementBody) elementBody.classList.remove("sidebar-expanded");
     }
   }, [sidebarExpanded]);
+
+  // Helpers de estilo para mantener consistencia
+  const isActive = (key: string) => pathname.includes(key);
+
+  const linkClasses = (active: boolean) =>
+    `flex items-center px-3 py-2 rounded-md mb-0.5 transition-colors ${
+      active
+        ? "bg-slate-900 text-white"
+        : "text-slate-200 hover:bg-slate-700/40 hover:text-white"
+    }`;
+
+  const iconClasses = (active: boolean) =>
+    `shrink-0 w-5 h-5 ${active ? "text-indigo-300" : "text-slate-400"}`;
+
+  const labelClasses =
+    "text-sm font-medium ml-3 lg:opacity-0 lg:sidebar-expanded:opacity-100 2xl:opacity-100 duration-200 truncate";
+
+  const subLinkClasses = (active: boolean) =>
+    `flex items-center transition-colors py-1 ${
+      active ? "text-indigo-300" : "text-slate-400 hover:text-slate-200"
+    }`;
+
   return (
     <div>
       {/* Sidebar backdrop (mobile only) */}
@@ -97,20 +135,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </svg>
           </button>
           {/* Logo */}
-          <NavLink end to="/dashboard" className="block">
+          <NavLink end to="/dashboard" className="block" title="Inicio">
             <img
               className="w-8 h-8 rounded-full"
               src={`/images/wichiwi-logo.jpg`}
               width="32"
               height="32"
-              alt="User"
+              alt="Wichi Wi"
             />
           </NavLink>
         </div>
 
         {/* Links */}
         <div className="space-y-8">
-          {/* Pages group */}
           <div>
             <h3 className="text-xs uppercase text-slate-500 font-semibold pl-3">
               <span
@@ -124,85 +161,52 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </span>
             </h3>
             <ul className="mt-3">
-              <li
-                className={`px-3 py-2 rounded-sm mb-0.5 last:mb-0 ${
-                  pathname === "/dashboard" && "bg-slate-900"
-                }`}
-              >
+              {/* Principal */}
+              <li title="Principal">
                 <NavLink
                   end
-                  to="/"
-                  className={`block text-slate-200 truncate transition duration-150 ${
-                    pathname === "/dashboard"
-                      ? "hover:text-slate-200"
-                      : "hover:text-white"
-                  }`}
+                  to="/dashboard"
+                  className={linkClasses(isActive("dashboard"))}
                 >
-                  <div className="flex items-center">
-                    <svg className="shrink-0 h-6 w-6" viewBox="0 0 24 24">
-                      <path
-                        className={`fill-current ${
-                          pathname === "/dashboard"
-                            ? "text-indigo-500"
-                            : "text-slate-600"
-                        }`}
-                        d="M9.293 2.293a1 1 0 0 1 1.414 0l7 7A1 1 0 0 1 17 11h-1v6a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1v-3a1 1 0 0 0-1-1H9a1 1 0 0 0-1 1v3a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-6H3a1 1 0 0 1-.707-1.707l7-7Z"
-                      />
-                      <path
-                        className={`fill-current ${
-                          pathname === "/dashboard"
-                            ? "text-indigo-300"
-                            : "text-slate-400"
-                        }`}
-                        d="M9.293 2.293a1 1 0 0 1 1.414 0l7 7A1 1 0 0 1 17 11h-1v6a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1v-3a1 1 0 0 0-1-1H9a1 1 0 0 0-1 1v3a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-6H3a1 1 0 0 1-.707-1.707l7-7Z"
-                      />
-                    </svg>
-                    <span className="text-sm font-medium ml-3 lg:opacity-0 lg:sidebar-expanded:opacity-100 2xl:opacity-100 duration-200">
-                      Principal
-                    </span>
-                  </div>
+                  <Home className={iconClasses(isActive("dashboard"))} />
+                  <span className={labelClasses}>Principal</span>
                 </NavLink>
               </li>
+
               {/* Turnos */}
-              <li
-                className={`px-3 py-2 rounded-sm mb-0.5 last:mb-0 ${
-                  pathname.includes("shift") && "bg-slate-900"
-                }`}
-              >
+              <li title="Turnos">
                 <NavLink
                   end
                   to="/shift"
-                  className={`block text-slate-200 truncate transition duration-150 ${
-                    pathname.includes("shift")
-                      ? "hover:text-slate-200"
-                      : "hover:text-white"
-                  }`}
+                  className={linkClasses(isActive("shift"))}
                 >
-                  <div className="flex items-center">
-                    <NotebookPen
-                      className={`${
-                        pathname.includes("shift")
-                          ? "text-indigo-300"
-                          : "text-slate-400"
-                      }`}
-                    />
-                    <span className="text-sm font-medium ml-3 lg:opacity-0 lg:sidebar-expanded:opacity-100 2xl:opacity-100 duration-200">
-                      Turnos
-                    </span>
-                  </div>
+                  <NotebookPen className={iconClasses(isActive("shift"))} />
+                  <span className={labelClasses}>Turnos</span>
                 </NavLink>
               </li>
-              <SidebarLinkGroup activecondition={pathname.includes("settings")}>
+
+              {/* Pagos MP */}
+              <li title="Pagos">
+                <NavLink
+                  end
+                  to="/payments/mercadopago"
+                  className={linkClasses(isActive("payments"))}
+                >
+                  <CreditCard className={iconClasses(isActive("payments"))} />
+                  <span className={labelClasses}>Pagos</span>
+                </NavLink>
+              </li>
+
+              {/* Configuración */}
+              <SidebarLinkGroup activecondition={isActive("settings")}>
                 {(handleClick, open) => {
+                  const active = isActive("settings");
                   return (
                     <React.Fragment>
                       <a
                         href="#0"
-                        className={`block text-slate-200 truncate transition duration-150 ${
-                          pathname.includes("settings")
-                            ? "hover:text-slate-200"
-                            : "hover:text-white"
-                        }`}
+                        title="Configuración"
+                        className={linkClasses(active)}
                         onClick={(e) => {
                           e.preventDefault();
                           sidebarExpanded
@@ -210,96 +214,70 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             : setSidebarExpanded(true);
                         }}
                       >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center">
-                            <Settings
-                              className={`${
-                                pathname.includes("settings")
-                                  ? "text-indigo-500"
-                                  : "text-slate-400"
-                              }`}
-                            />
-                            <span className="text-sm font-medium ml-3 lg:opacity-0 lg:sidebar-expanded:opacity-100 2xl:opacity-100 duration-200">
-                              Configuración
-                            </span>
-                          </div>
-                          {/* Icon */}
-                          <div className="flex shrink-0 ml-2">
-                            <svg
-                              className={`w-3 h-3 shrink-0 ml-1 fill-current text-slate-400 ${
-                                open && "rotate-180"
-                              }`}
-                              viewBox="0 0 12 12"
-                            >
-                              <path d="M5.9 11.4L.5 6l1.4-1.4 4 4 4-4L11.3 6z" />
-                            </svg>
-                          </div>
+                        <div className="flex items-center flex-1 min-w-0">
+                          <Settings className={iconClasses(active)} />
+                          <span className={labelClasses}>Configuración</span>
                         </div>
+                        <ChevronDown
+                          className={`w-4 h-4 shrink-0 ml-1 text-slate-400 transition-transform ${
+                            open ? "rotate-180" : ""
+                          } lg:hidden lg:sidebar-expanded:block 2xl:block`}
+                        />
                       </a>
                       <div className="lg:hidden lg:sidebar-expanded:block 2xl:block">
-                        <ul className={`pl-9 mt-1 ${!open && "hidden"}`}>
-                          {/* Metodos de pago */}
-                          <li className="mb-1 last:mb-0">
+                        <ul className={`pl-9 mt-1 mb-2 ${!open && "hidden"}`}>
+                          <li>
                             <NavLink
                               end
                               to="/settings/payment-methods"
-                              className={({ isActive }) =>
-                                "block transition duration-150 truncate " +
-                                (isActive
-                                  ? "text-indigo-500"
-                                  : "text-slate-400 hover:text-slate-200")
+                              className={({ isActive: a }) =>
+                                subLinkClasses(a)
                               }
                             >
-                              <span className="text-sm font-medium lg:opacity-0 lg:sidebar-expanded:opacity-100 2xl:opacity-100 duration-200">
+                              <Wallet className="w-4 h-4 shrink-0" />
+                              <span className="text-sm font-medium ml-2 truncate">
                                 Medios de pago
                               </span>
                             </NavLink>
                           </li>
-                          {/* Unidad de Negocio */}
-                          <li className="mb-1 last:mb-0">
+                          <li>
                             <NavLink
                               end
                               to="/settings/unit-business"
-                              className={({ isActive }) =>
-                                "block transition duration-150 truncate " +
-                                (isActive
-                                  ? "text-indigo-500"
-                                  : "text-slate-400 hover:text-slate-200")
+                              className={({ isActive: a }) =>
+                                subLinkClasses(a)
                               }
                             >
-                              <span className="text-sm font-medium lg:opacity-0 lg:sidebar-expanded:opacity-100 2xl:opacity-100 duration-200">
+                              <Store className="w-4 h-4 shrink-0" />
+                              <span className="text-sm font-medium ml-2 truncate">
                                 Unidad de Negocio
                               </span>
                             </NavLink>
                           </li>
-                          <li className="mb-1 last:mb-0">
+                          <li>
                             <NavLink
                               end
                               to="/settings/tables"
-                              className={({ isActive }) =>
-                                "block transition duration-150 truncate " +
-                                (isActive
-                                  ? "text-indigo-500"
-                                  : "text-slate-400 hover:text-slate-200")
+                              className={({ isActive: a }) =>
+                                subLinkClasses(a)
                               }
                             >
-                              <span className="text-sm font-medium lg:opacity-0 lg:sidebar-expanded:opacity-100 2xl:opacity-100 duration-200">
+                              <Coffee className="w-4 h-4 shrink-0" />
+                              <span className="text-sm font-medium ml-2 truncate">
                                 Mesas
                               </span>
                             </NavLink>
                           </li>
-                          <li className="mb-1 last:mb-0">
+                          <li>
                             <NavLink
                               end
                               to="/settings/companies"
-                              className={({ isActive }) =>
-                                "block transition duration-150 truncate " +
-                                (isActive
-                                  ? "text-indigo-500"
-                                  : "text-slate-400 hover:text-slate-200")
+                              className={({ isActive: a }) =>
+                                subLinkClasses(a)
                               }
                             >
-                              <span className="text-sm font-medium lg:opacity-0 lg:sidebar-expanded:opacity-100 2xl:opacity-100 duration-200">
+                              <Building2 className="w-4 h-4 shrink-0" />
+                              <span className="text-sm font-medium ml-2 truncate">
                                 Empresa
                               </span>
                             </NavLink>
@@ -311,20 +289,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 }}
               </SidebarLinkGroup>
 
-              {/* Utility */}
-              <SidebarLinkGroup
-                activecondition={pathname.includes("statistics")}
-              >
+              {/* Estadisticas */}
+              <SidebarLinkGroup activecondition={isActive("statistics")}>
                 {(handleClick, open) => {
+                  const active = isActive("statistics");
                   return (
                     <React.Fragment>
                       <a
                         href="#0"
-                        className={`block text-slate-200 truncate transition duration-150 ${
-                          pathname.includes("statistics")
-                            ? "hover:text-slate-200"
-                            : "hover:text-white"
-                        }`}
+                        title="Estadísticas"
+                        className={linkClasses(active)}
                         onClick={(e) => {
                           e.preventDefault();
                           sidebarExpanded
@@ -332,66 +306,34 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             : setSidebarExpanded(true);
                         }}
                       >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center">
-                            <ChartNoAxesCombined
-                              className={`${
-                                pathname.includes("statistics")
-                                  ? "text-indigo-300"
-                                  : "text-slate-400"
-                              }`}
-                            />
-                            <span className="text-sm font-medium ml-3 lg:opacity-0 lg:sidebar-expanded:opacity-100 2xl:opacity-100 duration-200">
-                              Estadisticas
-                            </span>
-                          </div>
-                          {/* Icon */}
-                          <div className="flex shrink-0 ml-2">
-                            <svg
-                              className={`w-3 h-3 shrink-0 ml-1 fill-current text-slate-400 ${
-                                open && "rotate-180"
-                              }`}
-                              viewBox="0 0 12 12"
-                            >
-                              <path d="M5.9 11.4L.5 6l1.4-1.4 4 4 4-4L11.3 6z" />
-                            </svg>
-                          </div>
+                        <div className="flex items-center flex-1 min-w-0">
+                          <ChartNoAxesCombined
+                            className={iconClasses(active)}
+                          />
+                          <span className={labelClasses}>Estadísticas</span>
                         </div>
+                        <ChevronDown
+                          className={`w-4 h-4 shrink-0 ml-1 text-slate-400 transition-transform ${
+                            open ? "rotate-180" : ""
+                          } lg:hidden lg:sidebar-expanded:block 2xl:block`}
+                        />
                       </a>
                       <div className="lg:hidden lg:sidebar-expanded:block 2xl:block">
                         <ul className={`pl-9 mt-1 ${!open && "hidden"}`}>
-                          <li className="mb-1 last:mb-0">
+                          <li>
                             <NavLink
                               end
                               to="/statistics"
-                              className={({ isActive }) =>
-                                "block transition duration-150 truncate " +
-                                (isActive
-                                  ? "text-indigo-500"
-                                  : "text-slate-400 hover:text-slate-200")
+                              className={({ isActive: a }) =>
+                                subLinkClasses(a)
                               }
                             >
-                              <span className="text-sm font-medium lg:opacity-0 lg:sidebar-expanded:opacity-100 2xl:opacity-100 duration-200">
+                              <NotebookPen className="w-4 h-4 shrink-0" />
+                              <span className="text-sm font-medium ml-2 truncate">
                                 Turnos
                               </span>
                             </NavLink>
                           </li>
-                          {/* <li className="mb-1 last:mb-0">
-                            <NavLink
-                              end
-                              to="/utility/roadmap"
-                              className={({ isActive }) =>
-                                "block transition duration-150 truncate " +
-                                (isActive
-                                  ? "text-indigo-500"
-                                  : "text-slate-400 hover:text-slate-200")
-                              }
-                            >
-                              <span className="text-sm font-medium lg:opacity-0 lg:sidebar-expanded:opacity-100 2xl:opacity-100 duration-200">
-                                Ventas
-                              </span>
-                            </NavLink>
-                          </li> */}
                         </ul>
                       </div>
                     </React.Fragment>
@@ -402,10 +344,45 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
         </div>
 
-        {/* Expand / collapse button */}
-        <div className="pt-3 hidden lg:inline-flex 2xl:hidden justify-end mt-auto">
-          <div className="px-3 py-2">
-            <button onClick={() => setSidebarExpanded(!sidebarExpanded)}>
+        {/* Footer: usuario + logout */}
+        <div className="mt-auto pt-4 border-t border-slate-700/60">
+          <div
+            className="flex items-center px-2 py-2"
+            title={
+              user
+                ? `${user.username}${user.companyCode ? ` · ${user.companyCode}` : ""}`
+                : "Usuario"
+            }
+          >
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-pink-400 to-blue-400 flex items-center justify-center text-white shrink-0">
+              <UserIcon className="w-4 h-4" />
+            </div>
+            <div className="ml-3 min-w-0 lg:opacity-0 lg:sidebar-expanded:opacity-100 2xl:opacity-100 duration-200">
+              <p className="text-sm font-medium text-slate-100 truncate">
+                {user?.username || "Usuario"}
+              </p>
+              {user?.companyCode && (
+                <p className="text-xs text-slate-400 truncate">
+                  {user.companyCode}
+                </p>
+              )}
+            </div>
+          </div>
+          <button
+            onClick={logout}
+            title="Cerrar sesión"
+            className="w-full mt-2 flex items-center px-3 py-2 rounded-md text-slate-300 hover:bg-slate-700/40 hover:text-white transition-colors"
+          >
+            <LogOut className="w-5 h-5 shrink-0 text-slate-400" />
+            <span className={labelClasses}>Cerrar sesión</span>
+          </button>
+
+          {/* Expand / collapse button */}
+          <div className="pt-3 hidden lg:flex 2xl:hidden justify-end">
+            <button
+              onClick={() => setSidebarExpanded(!sidebarExpanded)}
+              title={sidebarExpanded ? "Colapsar" : "Expandir"}
+            >
               <span className="sr-only">Expand / collapse sidebar</span>
               <svg
                 className="w-6 h-6 fill-current sidebar-expanded:rotate-180"

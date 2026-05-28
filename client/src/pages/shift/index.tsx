@@ -28,7 +28,7 @@ export const ShiftView = () => {
                     onClick={() => setViewMode("calendar")}
                     className={`p-2 rounded-md transition-colors ${
                       viewMode === "calendar"
-                        ? "bg-white shadow text-indigo-600"
+                        ? "bg-white shadow text-pink-500"
                         : "text-gray-600 hover:text-gray-900"
                     }`}
                   >
@@ -38,7 +38,7 @@ export const ShiftView = () => {
                     onClick={() => setViewMode("list")}
                     className={`p-2 rounded-md transition-colors ${
                       viewMode === "list"
-                        ? "bg-white shadow text-indigo-600"
+                        ? "bg-white shadow text-pink-500"
                         : "text-gray-600 hover:text-gray-900"
                     }`}
                   >

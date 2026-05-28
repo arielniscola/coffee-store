@@ -17,6 +17,13 @@ export interface IShift {
   childrenQty?: number;
   email: string;
   phoneNumber: string;
+  price?: number;
+  paymentId?: string;
+  preferenceId?: string;
+  paymentStatus?: string;
+  paymentLink?: string;
+  paidAt?: Date;
+  paymentExpiresAt?: Date;
 }
 
 export const ShiftSchema = createSchema<IShift>({
@@ -81,6 +88,17 @@ export const ShiftSchema = createSchema<IShift>({
     type: String,
     required: true,
   },
+  price: {
+    type: Number,
+    required: false,
+    default: 0,
+  },
+  paymentId: { type: String, required: false },
+  preferenceId: { type: String, required: false },
+  paymentStatus: { type: String, required: false },
+  paymentLink: { type: String, required: false },
+  paidAt: { type: Date, required: false },
+  paymentExpiresAt: { type: Date, required: false },
 });
 
 export const ShiftModel = createModel("shift", ShiftSchema);
