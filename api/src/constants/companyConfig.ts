@@ -95,6 +95,15 @@ export const DEFAULT_COMPANY_SETTINGS = [
       "URL base de la landing, se usa para los redirects de Mercado Pago.",
   },
   {
+    code: "publicApiBaseUrl",
+    type: "company",
+    dataType: "string",
+    name: "URL pública de la API",
+    value: "",
+    description:
+      "URL HTTPS pública del backend (ej. https://api.tudominio.com). Se usa como notification_url del webhook de Mercado Pago.",
+  },
+  {
     code: "priceAdult",
     type: "company",
     dataType: "number",
