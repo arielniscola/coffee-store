@@ -646,11 +646,6 @@ export default function ReservationModal({
                       hasta que la validemos.
                     </p>
                   )}
-                  <p className="text-xs">
-                    Política de cancelación: podés cancelar hasta 24 hs antes
-                    sin cargo. Cancelaciones con menos de 24 hs no tienen
-                    reembolso. Si no podés asistir, avisanos por WhatsApp.
-                  </p>
                 </div>
               </div>
             </div>

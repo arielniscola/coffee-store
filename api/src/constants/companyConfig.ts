@@ -99,7 +99,7 @@ export const DEFAULT_COMPANY_SETTINGS = [
     type: "company",
     dataType: "string",
     name: "URL pública de la API",
-    value: "",
+    value: "-",
     description:
       "URL HTTPS pública del backend (ej. https://api.tudominio.com). Se usa como notification_url del webhook de Mercado Pago.",
   },
@@ -126,7 +126,7 @@ export const DEFAULT_COMPANY_SETTINGS = [
     type: "company",
     dataType: "string",
     name: "Número de WhatsApp del negocio",
-    value: "",
+    value: "-",
     description:
       "Número en formato internacional sin + ni espacios (ej. 5492611234567). Se usa para los links wa.me en los mensajes de reserva.",
   },

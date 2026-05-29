@@ -98,7 +98,7 @@ export class Coffeshop {
   }
 
   private setOptions(
-    options: Partial<IShiftManagementOptions> = defaultOptions
+    options: Partial<IShiftManagementOptions> = defaultOptions,
   ) {
     Coffeshop._options = {
       ...defaultOptions,
