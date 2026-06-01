@@ -138,4 +138,55 @@ export const DEFAULT_COMPANY_SETTINGS = [
     value: "09:00-12:00",
     description: "Horarios para dia Domingos. Ej. 14:00-18:00, 20:00-23:00",
   },
+  {
+    code: "smtpHost",
+    type: "company",
+    dataType: "string",
+    name: "SMTP - Host",
+    value: "-",
+    description:
+      "Host del servidor SMTP para el envío de emails de confirmación (ej. smtp.gmail.com).",
+  },
+  {
+    code: "smtpPort",
+    type: "company",
+    dataType: "number",
+    name: "SMTP - Puerto",
+    value: 587,
+    description: "Puerto del servidor SMTP. 587 para STARTTLS, 465 para SSL.",
+  },
+  {
+    code: "smtpSecure",
+    type: "company",
+    dataType: "boolean",
+    name: "SMTP - Conexión segura",
+    value: false,
+    description: "Usar SSL/TLS directo. true para el puerto 465, false para 587.",
+  },
+  {
+    code: "smtpUser",
+    type: "company",
+    dataType: "string",
+    name: "SMTP - Usuario",
+    value: "-",
+    description: "Usuario de autenticación del servidor SMTP.",
+  },
+  {
+    code: "smtpPass",
+    type: "company",
+    dataType: "string",
+    name: "SMTP - Contraseña",
+    value: "-",
+    description:
+      "Contraseña o app password del servidor SMTP. Para Gmail usar una contraseña de aplicación.",
+  },
+  {
+    code: "emailFrom",
+    type: "company",
+    dataType: "string",
+    name: "Email - Remitente",
+    value: "-",
+    description:
+      "Remitente de los emails de confirmación (ej. Reservas <reservas@tudominio.com>). Si queda vacío se usa el usuario SMTP.",
+  },
 ];

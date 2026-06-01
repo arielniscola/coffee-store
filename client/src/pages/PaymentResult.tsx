@@ -129,7 +129,8 @@ export default function PaymentResult() {
     approved: {
       icon: <CheckCircle2 className="w-16 h-16 text-green-500" />,
       title: "¡Pago confirmado!",
-      subtitle: "Tu reserva fue confirmada.",
+      subtitle:
+        "Tu reserva fue confirmada. Te enviamos los detalles por mail.",
       color: "from-green-100 to-green-50",
     },
     pending: {

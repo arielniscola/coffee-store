@@ -3,6 +3,7 @@ import { IRouteController } from "../routes/index";
 import { IShift } from "../models/shift";
 import { mercadoPagoService } from "../services/mercadopago";
 import { shiftService } from "../services/shift";
+import { sendShiftConfirmationEmailOnce } from "../services/email";
 
 export class PaymentsController {
   /**
@@ -85,6 +86,11 @@ export class PaymentsController {
         update.status = "cancelled";
       }
       await shiftService.updateOne({ _id: shiftId }, update);
+
+      // Pago acreditado: enviar email de confirmación (una sola vez).
+      if (update.status === "paid") {
+        await sendShiftConfirmationEmailOnce(shiftId);
+      }
     } catch (e) {
       logger.error(e, "Error procesando webhook MP");
     }
@@ -193,6 +199,10 @@ export class PaymentsController {
         update.paidAt = new Date();
       }
       await shiftService.updateOne({ _id: shiftId }, update);
+
+      if (update.status === "paid") {
+        await sendShiftConfirmationEmailOnce(shiftId);
+      }
 
       return res.status(200).json({
         ack: 0,

@@ -12,6 +12,7 @@ import {
   Clock,
   Globe,
   Shield,
+  Mail,
   CheckCircle2,
 } from "lucide-react";
 import { IConfig } from "../../interfaces/config";
@@ -21,7 +22,7 @@ import toast from "react-hot-toast";
 const notify = (msg: string) => toast.success(msg);
 const notifyError = (msg: string) => toast.error(msg);
 
-type Category = "payments" | "schedule" | "public" | "system";
+type Category = "payments" | "schedule" | "public" | "email" | "system";
 
 interface CategoryMeta {
   label: string;
@@ -49,6 +50,12 @@ const CATEGORIES: Record<Category, CategoryMeta> = {
     icon: <Globe className="w-5 h-5" />,
     gradient: "from-blue-300 to-cyan-400",
   },
+  email: {
+    label: "Email (SMTP)",
+    description: "Servidor SMTP para enviar los emails de confirmación",
+    icon: <Mail className="w-5 h-5" />,
+    gradient: "from-amber-300 to-orange-400",
+  },
   system: {
     label: "Sistema",
     description: "Parámetros internos de la aplicación",
@@ -64,6 +71,12 @@ const CATEGORY_BY_CODE: Record<string, Category> = {
   whatsappNumber: "payments",
   publicBaseUrl: "public",
   publicApiBaseUrl: "public",
+  smtpHost: "email",
+  smtpPort: "email",
+  smtpSecure: "email",
+  smtpUser: "email",
+  smtpPass: "email",
+  emailFrom: "email",
   durationShift: "schedule",
   daysWeek: "schedule",
   scheduleDayMonday: "schedule",
@@ -144,7 +157,8 @@ const FieldRow = ({
 }: FieldRowProps) => {
   const [showSecret, setShowSecret] = useState(false);
   const error = validateValue(setting, value);
-  const isSecret = setting.code === "mpAccessToken";
+  const isSecret =
+    setting.code === "mpAccessToken" || setting.code === "smtpPass";
   const isUrl = setting.code === "publicBaseUrl";
   const isPrice =
     setting.code === "priceAdult" || setting.code === "priceChild";
@@ -208,7 +222,11 @@ const FieldRow = ({
             <input
               type={showSecret ? "text" : "password"}
               value={String(value || "")}
-              placeholder="TEST-... o APP_USR-..."
+              placeholder={
+                setting.code === "smtpPass"
+                  ? "Contraseña o app password"
+                  : "TEST-... o APP_USR-..."
+              }
               onChange={(e) => onChange(e.target.value)}
               className="w-full pr-10 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-300 focus:border-pink-300 font-mono text-sm"
             />
@@ -217,7 +235,7 @@ const FieldRow = ({
               onClick={() => setShowSecret((v) => !v)}
               className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600"
               aria-label={
-                showSecret ? "Ocultar token" : "Mostrar token"
+                showSecret ? "Ocultar valor" : "Mostrar valor"
               }
             >
               {showSecret ? (
@@ -376,6 +394,7 @@ export function CompanySettings() {
       payments: [],
       schedule: [],
       public: [],
+      email: [],
       system: [],
     };
     for (const s of settings) {

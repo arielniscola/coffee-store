@@ -2,6 +2,7 @@ import Log from "../libs/logger";
 import { IShift } from "../models/shift";
 import { mercadoPagoService } from "./mercadopago";
 import { shiftService } from "./shift";
+import { sendShiftConfirmationEmailOnce } from "./email";
 
 const log = new Log("PaymentReconciler");
 
@@ -46,6 +47,9 @@ async function reconcileOnce() {
             update.status = "cancelled";
           }
           await shiftService.updateOne({ _id: shift._id }, update);
+          if (update.status === "paid") {
+            await sendShiftConfirmationEmailOnce(String(shift._id));
+          }
         } catch (e) {
           log.error(e, `Error reconciliando shift ${shift._id}`);
         }

@@ -23,6 +23,52 @@ import { getCompany } from "../../services/company";
 import { getConfigs } from "../../services/config";
 import { IConfig } from "../../interfaces/config";
 
+// Orden de la semana y etiqueta visible para cada config de horario.
+const SCHEDULE_DAYS: { code: string; label: string }[] = [
+  { code: "scheduleDayMonday", label: "Lunes" },
+  { code: "scheduleDayTuesday", label: "Martes" },
+  { code: "scheduleDayWednesday", label: "Miércoles" },
+  { code: "scheduleDayThursday", label: "Jueves" },
+  { code: "scheduleDayFriday", label: "Viernes" },
+  { code: "scheduleDaySaturday", label: "Sábado" },
+  { code: "scheduleDaySunday", label: "Domingo" },
+];
+
+// "09:00-18:00, 20:00-23:00" -> "09:00 - 18:00 · 20:00 - 23:00".
+// Si no hay franjas válidas devuelve "Cerrado".
+function formatSchedule(raw?: string): string {
+  const ranges = String(raw ?? "")
+    .split(",")
+    .map((r) => r.trim())
+    .filter((r) => /^\d{1,2}:\d{2}-\d{1,2}:\d{2}$/.test(r));
+  if (!ranges.length) return "Cerrado";
+  return ranges.map((r) => r.split("-").join(" - ")).join(" · ");
+}
+
+interface ScheduleGroup {
+  label: string;
+  hours: string;
+}
+
+// Agrupa días consecutivos con el mismo horario para mostrar rangos como
+// "Lunes a Viernes" en lugar de listar cada día por separado.
+function buildScheduleGroups(configs: IConfig[]): ScheduleGroup[] {
+  const groups: { days: string[]; hours: string }[] = [];
+  for (const day of SCHEDULE_DAYS) {
+    const hours = formatSchedule(
+      configs.find((c) => c.code === day.code)?.value as string | undefined,
+    );
+    const last = groups[groups.length - 1];
+    if (last && last.hours === hours) last.days.push(day.label);
+    else groups.push({ days: [day.label], hours });
+  }
+  return groups.map(({ days, hours }) => ({
+    hours,
+    label:
+      days.length === 1 ? days[0] : `${days[0]} a ${days[days.length - 1]}`,
+  }));
+}
+
 function LandingPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -30,6 +76,7 @@ function LandingPage() {
   const [confirmShift, setConfirmShift] = useState<IShift | undefined>();
   const [company, setCompany] = useState<ICompany | undefined>();
   const [priceChild, setPriceChild] = useState<number>(0);
+  const [scheduleGroups, setScheduleGroups] = useState<ScheduleGroup[]>([]);
 
   useEffect(() => {
     loadProfile();
@@ -54,6 +101,7 @@ function LandingPage() {
         configs?.find((c) => c.code === "priceChild")?.value || 0,
       );
       setPriceChild(c);
+      setScheduleGroups(buildScheduleGroups(configs || []));
     } catch (error) {
       console.error("Error loading prices:", error);
     }
@@ -206,26 +254,33 @@ function LandingPage() {
               </h2>
               <div className="w-24 h-1 bg-gradient-to-r from-pink-300 to-blue-300 mx-auto mb-8"></div>
             </div>
-            <div className="max-w-2xl mx-auto grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="bg-gradient-to-br from-pink-50 to-white rounded-xl p-6 shadow-md flex items-center gap-4">
-                <Clock className="w-8 h-8 text-pink-400 flex-shrink-0" />
-                <div>
-                  <p className="font-semibold text-gray-800">
-                    Lunes a Viernes
-                  </p>
-                  <p className="text-gray-600">09:00 - 20:00</p>
-                </div>
+            {scheduleGroups.length > 0 && (
+              <div className="max-w-2xl mx-auto grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {scheduleGroups.map((group, index) => {
+                  const even = index % 2 === 0;
+                  return (
+                    <div
+                      key={`${group.label}-${index}`}
+                      className={`bg-gradient-to-br ${
+                        even ? "from-pink-50" : "from-blue-50"
+                      } to-white rounded-xl p-6 shadow-md flex items-center gap-4`}
+                    >
+                      <Clock
+                        className={`w-8 h-8 flex-shrink-0 ${
+                          even ? "text-pink-400" : "text-blue-400"
+                        }`}
+                      />
+                      <div>
+                        <p className="font-semibold text-gray-800">
+                          {group.label}
+                        </p>
+                        <p className="text-gray-600">{group.hours}</p>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-              <div className="bg-gradient-to-br from-blue-50 to-white rounded-xl p-6 shadow-md flex items-center gap-4">
-                <Clock className="w-8 h-8 text-blue-400 flex-shrink-0" />
-                <div>
-                  <p className="font-semibold text-gray-800">
-                    Sábados y Domingos
-                  </p>
-                  <p className="text-gray-600">10:00 - 21:00</p>
-                </div>
-              </div>
-            </div>
+            )}
           </div>
         </section>
 

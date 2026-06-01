@@ -6,6 +6,7 @@ import { shiftService } from "../services/shift";
 import configService from "../services/config";
 import { tableService } from "../services/table";
 import { mercadoPagoService } from "../services/mercadopago";
+import { sendShiftConfirmationEmailOnce } from "../services/email";
 
 export class ShiftController {
   static find: IRouteController<
@@ -476,6 +477,11 @@ export class ShiftController {
       }
       await shiftService.updateOne({ _id: id }, update);
 
+      // Pago acreditado vía polling: enviar email de confirmación (una vez).
+      if (update.status === "paid") {
+        await sendShiftConfirmationEmailOnce(id);
+      }
+
       return res.status(200).json({
         ack: 0,
         status: update.status || shift.status,
@@ -515,6 +521,9 @@ export class ShiftController {
           update.status = "cancelled";
         }
         await shiftService.updateOne({ _id: shift._id }, update);
+        if (update.status === "paid") {
+          await sendShiftConfirmationEmailOnce(String(shift._id));
+        }
       }
     } catch (e) {
       // No bloquear el listado si MP falla

@@ -24,6 +24,7 @@ export interface IShift {
   paymentLink?: string;
   paidAt?: Date;
   paymentExpiresAt?: Date;
+  confirmationEmailSentAt?: string;
 }
 
 export const ShiftSchema = createSchema<IShift>({
@@ -99,6 +100,7 @@ export const ShiftSchema = createSchema<IShift>({
   paymentLink: { type: String, required: false },
   paidAt: { type: Date, required: false },
   paymentExpiresAt: { type: Date, required: false },
+  confirmationEmailSentAt: { type: String, required: false },
 });
 
 export const ShiftModel = createModel("shift", ShiftSchema);
