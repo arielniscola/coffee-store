@@ -4,7 +4,6 @@ import { IShift } from "../models/shift";
 import { IRouteController } from "../routes/index";
 import { shiftService } from "../services/shift";
 import configService from "../services/config";
-import { tableService } from "../services/table";
 import { mercadoPagoService } from "../services/mercadopago";
 import { sendShiftConfirmationEmailOnce } from "../services/email";
 
@@ -54,6 +53,16 @@ export class ShiftController {
       const shift: IShift = req.body;
       shift.companyCode = companyCode;
       delete shift._id;
+      // No permitir reservas en fechas marcadas como cerradas.
+      const dateStr =
+        typeof shift.date === "string"
+          ? (shift.date as string).split("T")[0]
+          : moment(shift.date).format("YYYY-MM-DD");
+      if (await this.isDateClosed(companyCode, dateStr)) {
+        throw new Error(
+          "El local está cerrado en la fecha seleccionada. Por favor elegí otra fecha."
+        );
+      }
       // Convertir fecha string a Date UTC
       if (typeof shift.date === "string") {
         shift.date = moment(shift.date, "YYYY-MM-DD").utc(true).toDate();
@@ -198,10 +207,16 @@ export class ShiftController {
   > = async (req, res) => {
     const logger = new Log(res.locals.requestId, "ShiftController.avaliable");
     try {
-      const companyCode = res.locals.companyCode;
+      // El endpoint es público y puede no resolver companyCode, igual que
+      // checkout/create usamos "wichiwi" como compañía por defecto.
+      const companyCode = res.locals.companyCode || "wichiwi";
       const date = req.query.date
         ? req.query.date
         : moment().format("YYYY-MM-DD");
+      // Si el local está cerrado ese día, no hay horarios disponibles.
+      if (await this.isDateClosed(companyCode, date)) {
+        return res.status(200).json({ ack: 0, data: [] });
+      }
       const startDate = moment(date, "YYYY-MM-DD").startOf("day").utc(true);
       const endDate = moment(date, "YYYY-MM-DD").utc(true).endOf("day");
       const filter = {
@@ -252,16 +267,14 @@ export class ShiftController {
     /** Validamos cuantos horarios contiene */
     const scheduleSlot = timeSchedule.trim().split(",");
 
-    /** Obtenemos las mesas disponibles */
-    const tables = await tableService.find({
-      companyCode: companyCode,
-      unitBusiness: unitBusiness,
-      active: true,
-    });
-    let totalPlaces = 0;
-    tables.map((tab) => (totalPlaces += tab.capacity));
-    let reservationsAvailables: { availables: number; initialTime: string }[] =
-      [];
+    /** Capacidad diferenciada de adultos y niños según el modo configurado */
+    const capacity = await shiftService.getCapacity(companyCode, unitBusiness);
+    let reservationsAvailables: {
+      availables: number;
+      availablesAdults: number;
+      availablesChildren: number;
+      initialTime: string;
+    }[] = [];
     /** Algoritmo para obtener turnos restantes disponibles */
     for (const slot of scheduleSlot) {
       const timeSlotArray = slot.split("-");
@@ -272,7 +285,9 @@ export class ShiftController {
       countTime = initialTime;
       while (endTime > countTime) {
         reservationsAvailables.push({
-          availables: totalPlaces,
+          availables: capacity.adults + capacity.children,
+          availablesAdults: capacity.adults,
+          availablesChildren: capacity.children,
           initialTime: this.parseMinutesToTime(countTime),
         });
         countTime += parseInt(durationConfig);
@@ -283,7 +298,12 @@ export class ShiftController {
         (r) => r.initialTime === reserv.timeStart
       );
       if (index !== -1) {
-        reservationsAvailables[index].availables -= reserv.peopleQty;
+        reservationsAvailables[index].availablesAdults -= reserv.adultsQty || 0;
+        reservationsAvailables[index].availablesChildren -=
+          reserv.childrenQty || 0;
+        reservationsAvailables[index].availables =
+          reservationsAvailables[index].availablesAdults +
+          reservationsAvailables[index].availablesChildren;
       }
     }
     return reservationsAvailables;
@@ -305,6 +325,17 @@ export class ShiftController {
       shift.companyCode = companyCode;
       shift.status = "pendingPayment";
       delete shift._id;
+
+      // No permitir reservas en fechas marcadas como cerradas.
+      const dateStr =
+        typeof shift.date === "string"
+          ? (shift.date as string).split("T")[0]
+          : moment(shift.date).format("YYYY-MM-DD");
+      if (await this.isDateClosed(companyCode, dateStr)) {
+        throw new Error(
+          "El local está cerrado en la fecha seleccionada. Por favor elegí otra fecha."
+        );
+      }
 
       if (typeof shift.date === "string") {
         shift.date = moment(shift.date, "YYYY-MM-DD").utc(true).toDate();
@@ -527,6 +558,32 @@ export class ShiftController {
       }
     } catch (e) {
       // No bloquear el listado si MP falla
+    }
+  }
+
+  /**
+   * Determina si una fecha (yyyy-MM-dd) está marcada como cerrada para la
+   * compañía. Las fechas cerradas se configuran desde el dashboard en el
+   * parámetro `closedDates` (lista separada por coma).
+   */
+  private static async isDateClosed(
+    companyCode: string,
+    date: string
+  ): Promise<boolean> {
+    try {
+      const raw = (await configService.getValue(
+        "closedDates",
+        companyCode
+      )) as string;
+      if (!raw) return false;
+      const closed = String(raw)
+        .split(",")
+        .map((d) => d.trim())
+        .filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d));
+      return closed.includes(date);
+    } catch (e) {
+      // Si el config no existe o falla, no bloquear las reservas.
+      return false;
     }
   }
 

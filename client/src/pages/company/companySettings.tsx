@@ -14,6 +14,7 @@ import {
   Shield,
   Mail,
   CheckCircle2,
+  Users,
 } from "lucide-react";
 import { IConfig } from "../../interfaces/config";
 import { getConfigs, updateConfig } from "../../services/config";
@@ -22,7 +23,13 @@ import toast from "react-hot-toast";
 const notify = (msg: string) => toast.success(msg);
 const notifyError = (msg: string) => toast.error(msg);
 
-type Category = "payments" | "schedule" | "public" | "email" | "system";
+type Category =
+  | "payments"
+  | "capacity"
+  | "schedule"
+  | "public"
+  | "email"
+  | "system";
 
 interface CategoryMeta {
   label: string;
@@ -37,6 +44,12 @@ const CATEGORIES: Record<Category, CategoryMeta> = {
     description: "Precios de reserva y credenciales de Mercado Pago",
     icon: <DollarSign className="w-5 h-5" />,
     gradient: "from-green-300 to-emerald-400",
+  },
+  capacity: {
+    label: "Capacidad",
+    description: "Modo de cálculo y máximos de adultos y niños por turno",
+    icon: <Users className="w-5 h-5" />,
+    gradient: "from-teal-300 to-cyan-400",
   },
   schedule: {
     label: "Horarios",
@@ -69,6 +82,9 @@ const CATEGORY_BY_CODE: Record<string, Category> = {
   priceChild: "payments",
   mpAccessToken: "payments",
   whatsappNumber: "payments",
+  capacityMode: "capacity",
+  maxAdults: "capacity",
+  maxChildren: "capacity",
   publicBaseUrl: "public",
   publicApiBaseUrl: "public",
   smtpHost: "email",
@@ -199,6 +215,31 @@ const FieldRow = ({
     );
   }
 
+  if (setting.code === "capacityMode") {
+    return (
+      <div className="py-3">
+        {!hideName && (
+          <label className="block text-sm font-medium text-gray-800">
+            {label}
+          </label>
+        )}
+        {setting.description && (
+          <p className="text-xs text-gray-500 mt-0.5 mb-2">
+            {setting.description}
+          </p>
+        )}
+        <select
+          value={String(value || "tables")}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-300 focus:border-pink-300"
+        >
+          <option value="tables">Por mesas (suma de capacidades)</option>
+          <option value="manual">Manual (máximos configurados)</option>
+        </select>
+      </div>
+    );
+  }
+
   return (
     <div className="py-3">
       {!hideName && (
@@ -319,9 +360,11 @@ export function CompanySettings() {
     try {
       setLoading(true);
       const data = (await getConfigs()) as IConfig[];
-      setSettings(data || []);
+      // closedDates se administra en su propia sección "Días cerrados".
+      const visible = (data || []).filter((s) => s.code !== "closedDates");
+      setSettings(visible);
       const initial: { [key: string]: string | number | object | boolean } = {};
-      data?.forEach((s) => (initial[s.code] = s.value));
+      visible.forEach((s) => (initial[s.code] = s.value));
       setEditedValues(initial);
     } catch (e) {
       console.error("Error loading settings:", e);
@@ -392,6 +435,7 @@ export function CompanySettings() {
     const q = search.toLowerCase();
     const groups: Record<Category, IConfig[]> = {
       payments: [],
+      capacity: [],
       schedule: [],
       public: [],
       email: [],

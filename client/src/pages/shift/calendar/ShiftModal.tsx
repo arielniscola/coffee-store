@@ -27,6 +27,8 @@ interface ShiftModalProps {
 
 interface TimeSlot {
   availables: number;
+  availablesAdults: number;
+  availablesChildren: number;
   initialTime: string;
 }
 
@@ -104,13 +106,19 @@ export default function ShiftModal({
 
   if (!isOpen) return null;
 
+  const adultsQty = formData.adultsQty || 0;
+  const childrenQty = formData.childrenQty || 0;
+
+  // Un horario no alcanza si no quedan lugares de adultos o de niños suficientes.
+  const slotInsufficient = (s: TimeSlot) =>
+    adultsQty > (s.availablesAdults ?? 0) ||
+    childrenQty > (s.availablesChildren ?? 0);
+
   const selectedSlot = availableSlots.find(
     (a) => a.initialTime === formData.timeStart,
   );
   const insufficient =
-    peopleQty > 0 &&
-    !!formData.timeStart &&
-    peopleQty > (selectedSlot?.availables || 0);
+    !!formData.timeStart && !!selectedSlot && slotInsufficient(selectedSlot);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -360,10 +368,10 @@ export default function ShiftModal({
                 No hay horarios disponibles para esta fecha.
               </div>
             ) : (
-              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2 max-h-56 overflow-y-auto p-2 bg-gray-50 rounded-lg">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 max-h-56 overflow-y-auto p-2 bg-gray-50 rounded-lg">
                 {availableSlots.map((sl) => {
                   const selected = formData.timeStart === sl.initialTime;
-                  const noRoom = peopleQty > 0 && sl.availables < peopleQty;
+                  const noRoom = slotInsufficient(sl);
                   return (
                     <button
                       key={sl.initialTime}
@@ -385,12 +393,17 @@ export default function ShiftModal({
                     >
                       <div className="flex flex-col items-center gap-0.5">
                         <span className="font-semibold">{sl.initialTime}</span>
+                        <span className="text-[10px] uppercase tracking-wide text-gray-400">
+                          Disponibilidad
+                        </span>
                         <span
-                          className={`text-xs ${
+                          className={`text-xs leading-tight text-center ${
                             noRoom ? "text-red-500" : "text-green-600"
                           }`}
                         >
-                          {sl.availables} lugares
+                          {sl.availablesAdults} adultos
+                          <br />
+                          {sl.availablesChildren} niños
                         </span>
                       </div>
                     </button>
@@ -466,7 +479,8 @@ export default function ShiftModal({
               />
               <div className="text-sm">
                 <p className="font-bold text-orange-700">
-                  {selectedSlot?.availables ?? 0} lugares disponibles
+                  Quedan {selectedSlot?.availablesAdults ?? 0} adultos y{" "}
+                  {selectedSlot?.availablesChildren ?? 0} niños
                 </p>
                 <p className="text-orange-700 text-xs mt-1">
                   El horario seleccionado no tiene cupo para la cantidad de

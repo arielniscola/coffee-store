@@ -64,8 +64,21 @@ const formatDate = (raw?: Date | string): string => {
   });
 };
 
-const buildConfirmationHtml = (shift: IShift, companyName: string): string => {
+const buildConfirmationHtml = (
+  shift: IShift,
+  companyName: string,
+  whatsappNumber: string,
+): string => {
   const reservaTag = String(shift._id || "").slice(-8).toUpperCase();
+  const waMessage = encodeURIComponent(
+    `Hola! Necesito modificar mi reserva${reservaTag ? ` #${reservaTag}` : ""}.`,
+  );
+  const waLink = whatsappNumber
+    ? `https://wa.me/${whatsappNumber}?text=${waMessage}`
+    : "";
+  const modifyText = waLink
+    ? `Si necesitás modificar tu reserva, <a href="${waLink}" style="color:#16a34a;font-weight:600;text-decoration:none;">contactanos por WhatsApp</a>.`
+    : "Si necesitás modificar tu reserva, contactanos por WhatsApp.";
   const peopleDetail =
     shift.adultsQty != null && shift.childrenQty != null
       ? `${shift.peopleQty} personas (${shift.adultsQty} adultos, ${shift.childrenQty} niños)`
@@ -89,7 +102,7 @@ const buildConfirmationHtml = (shift: IShift, companyName: string): string => {
         <tr><td style="padding:6px 0;color:#6b7280;">Personas</td><td style="padding:6px 0;text-align:right;">${peopleDetail}</td></tr>
         ${priceRow}
       </table>
-      <p style="margin:24px 0 0;font-size:13px;color:#6b7280;text-align:center;">¡Te esperamos! Si necesitás modificar tu reserva, respondé este correo.</p>
+      <p style="margin:24px 0 0;font-size:13px;color:#6b7280;text-align:center;">¡Te esperamos! ${modifyText}</p>
     </div>
     ${companyName ? `<div style="padding:16px;background:#f9fafb;text-align:center;font-size:12px;color:#9ca3af;">${companyName}</div>` : ""}
   </div>`;
@@ -114,12 +127,13 @@ export const sendShiftConfirmationEmail = async (
       (await cfg("emailFrom", companyCode)) ||
       (await cfg("smtpUser", companyCode));
     const companyName = await cfg("companyName", companyCode);
+    const whatsappNumber = await cfg("whatsappNumber", companyCode);
 
     await transporter.sendMail({
       from,
       to: shift.email,
       subject: `Confirmación de tu reserva${companyName ? ` · ${companyName}` : ""}`,
-      html: buildConfirmationHtml(shift, companyName),
+      html: buildConfirmationHtml(shift, companyName, whatsappNumber),
     });
 
     log.info(`Email de confirmación enviado a ${shift.email}`);

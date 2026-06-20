@@ -1,10 +1,71 @@
 import { Document, Filter, insertManyOptions, Service, Update } from ".";
 import { IShift, ShiftModel } from "../models/shift";
 import { tableService } from "./table";
+import configService from "./config";
+
+export interface SlotCapacity {
+  adults: number;
+  children: number;
+}
 
 export class ShiftService extends Service<IShift> {
   constructor() {
     super(ShiftModel);
+  }
+
+  /**
+   * Calcula la capacidad de adultos y niños por turno para una compañía.
+   * Según el config `capacityMode`:
+   *  - "manual": usa los máximos `maxAdults` y `maxChildren`.
+   *  - "tables" (por defecto): suma la capacidad de adultos y de niños de las
+   *    mesas activas. Para mesas viejas sin capacidad diferenciada, se usa el
+   *    campo legacy `capacity` como capacidad de adultos.
+   */
+  async getCapacity(
+    companyCode: string,
+    unitBusiness?: string
+  ): Promise<SlotCapacity> {
+    let mode = "tables";
+    try {
+      mode = String(
+        (await configService.getValue("capacityMode", companyCode)) || "tables"
+      );
+    } catch (e) {
+      mode = "tables";
+    }
+
+    if (mode === "manual") {
+      let adults = 0;
+      let children = 0;
+      try {
+        adults = Number(await configService.getValue("maxAdults", companyCode)) || 0;
+      } catch (e) {}
+      try {
+        children =
+          Number(await configService.getValue("maxChildren", companyCode)) || 0;
+      } catch (e) {}
+      return { adults, children };
+    }
+
+    const tables = await tableService.find({
+      companyCode,
+      ...(unitBusiness ? { unitBusiness } : {}),
+      active: true,
+    });
+    let adults = 0;
+    let children = 0;
+    for (const t of tables) {
+      const a = t.adultCapacity ?? 0;
+      const c = t.childrenCapacity ?? 0;
+      // Compatibilidad: mesa vieja sin capacidad diferenciada → capacity = adultos.
+      if (a === 0 && c === 0 && (t.capacity || 0) > 0) {
+        adults += t.capacity;
+      } else {
+        adults += a;
+        children += c;
+      }
+    }
+    return { adults, children };
   }
   async insertOne(
     data: Partial<IShift>,
@@ -80,20 +141,24 @@ export class ShiftService extends Service<IShift> {
         {},
         { lean: true }
       );
-      /** Validar que queden lugares disponibles */
-      const tables = await tableService.find({
-        companyCode: shift.companyCode,
-        unitBusiness: shift.unitBusiness,
-        active: true,
-      });
-      /** Si es un turno que esta dentro del horario devolver true */
-      const isUpdate = shiftsFounded.find((s) => s._id == shift._id);
-      if (isUpdate) return true;
-      let availablePlaces = 0;
-      tables.map((t) => (availablePlaces += t.capacity));
-      let ocupationsPlaces = 0;
-      shiftsFounded.map((s) => (ocupationsPlaces += s.peopleQty));
-      if (availablePlaces <= ocupationsPlaces) return false;
+      /** Capacidad diferenciada de adultos y niños según el modo configurado */
+      const capacity = await this.getCapacity(
+        shift.companyCode,
+        shift.unitBusiness
+      );
+      /** Ocupación actual del turno, excluyendo la propia reserva si es update */
+      let occupiedAdults = 0;
+      let occupiedChildren = 0;
+      for (const s of shiftsFounded) {
+        if (shift._id && String(s._id) === String(shift._id)) continue;
+        occupiedAdults += s.adultsQty || 0;
+        occupiedChildren += s.childrenQty || 0;
+      }
+      const newAdults = shift.adultsQty || 0;
+      const newChildren = shift.childrenQty || 0;
+      /** Los límites de adultos y niños son independientes */
+      if (occupiedAdults + newAdults > capacity.adults) return false;
+      if (occupiedChildren + newChildren > capacity.children) return false;
       return true;
     } catch (e) {
       throw e;

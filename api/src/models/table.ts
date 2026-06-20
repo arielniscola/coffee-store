@@ -3,7 +3,12 @@ import { createModel, createSchema } from ".";
 export interface ITable {
   _id?: string;
   number: number;
+  /** Capacidad total (adultos + niños). Se mantiene por compatibilidad. */
   capacity: number;
+  /** Capacidad de adultos de la mesa */
+  adultCapacity?: number;
+  /** Capacidad de niños de la mesa */
+  childrenCapacity?: number;
   description?: string;
   unitBusiness: string;
   companyCode: string;
@@ -17,7 +22,18 @@ export const TableSchema = createSchema<ITable>({
   },
   capacity: {
     type: Number,
-    required: true,
+    required: false,
+    default: 0,
+  },
+  adultCapacity: {
+    type: Number,
+    required: false,
+    default: 0,
+  },
+  childrenCapacity: {
+    type: Number,
+    required: false,
+    default: 0,
   },
   description: {
     type: String,

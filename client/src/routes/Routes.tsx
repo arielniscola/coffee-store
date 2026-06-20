@@ -1,4 +1,4 @@
-import { createBrowserRouter } from "react-router-dom";
+import { createBrowserRouter, Navigate } from "react-router-dom";
 import App from "../App";
 import Login from "../pages/login/login";
 import ProtectedRoute from "./ProtectedRoutes";
@@ -11,6 +11,7 @@ import { ShiftView } from "../pages/shift";
 import LandingPage from "../pages/landingPage/LandingPage";
 import Tables from "../pages/tables";
 import CompanyConfig from "../pages/company";
+import ClosedDates from "../pages/closedDates/ClosedDates";
 import PaymentResult from "../pages/PaymentResult";
 import MpPayments from "../pages/payments/MpPayments";
 
@@ -24,11 +25,7 @@ export const router = createBrowserRouter([
       { path: "login", element: <Login /> },
       {
         path: "",
-        element: (
-          <ProtectedRoute>
-            <Dashboard />
-          </ProtectedRoute>
-        ),
+        element: <Navigate to="/reservas" replace />,
       },
       {
         path: "shift",
@@ -75,6 +72,14 @@ export const router = createBrowserRouter([
         element: (
           <ProtectedRoute>
             <CompanyConfig />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/settings/closed-dates",
+        element: (
+          <ProtectedRoute>
+            <ClosedDates />
           </ProtectedRoute>
         ),
       },

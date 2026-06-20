@@ -21,6 +21,8 @@ const emptyForm: ITable = {
   _id: "",
   number: 0,
   capacity: 0,
+  adultCapacity: 0,
+  childrenCapacity: 0,
   description: "",
   unitBusiness: "",
   companyCode: "",
@@ -176,9 +178,13 @@ const Tables = () => {
                       </span>
                     </div>
                     <p className="text-sm text-gray-600">
-                      Capacidad:{" "}
+                      Adultos:{" "}
                       <span className="font-semibold text-gray-800">
-                        {tab.capacity}
+                        {tab.adultCapacity ?? 0}
+                      </span>{" "}
+                      · Niños:{" "}
+                      <span className="font-semibold text-gray-800">
+                        {tab.childrenCapacity ?? 0}
                       </span>
                     </p>
                     {tab.description && (
@@ -228,20 +234,38 @@ const Tables = () => {
                     </button>
                   </div>
                   <div className="p-6 space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        N° de mesa
+                      </label>
+                      <input
+                        type="number"
+                        step={1}
+                        min={1}
+                        value={formData.number}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            number: parseInt(e.target.value) || 0,
+                          })
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-300 focus:border-pink-300"
+                      />
+                    </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                          N° de mesa
+                          Capacidad adultos
                         </label>
                         <input
                           type="number"
                           step={1}
-                          min={1}
-                          value={formData.number}
+                          min={0}
+                          value={formData.adultCapacity}
                           onChange={(e) =>
                             setFormData({
                               ...formData,
-                              number: parseInt(e.target.value) || 0,
+                              adultCapacity: parseInt(e.target.value) || 0,
                             })
                           }
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-300 focus:border-pink-300"
@@ -249,17 +273,17 @@ const Tables = () => {
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Capacidad
+                          Capacidad niños
                         </label>
                         <input
                           type="number"
                           step={1}
-                          min={1}
-                          value={formData.capacity}
+                          min={0}
+                          value={formData.childrenCapacity}
                           onChange={(e) =>
                             setFormData({
                               ...formData,
-                              capacity: parseInt(e.target.value) || 0,
+                              childrenCapacity: parseInt(e.target.value) || 0,
                             })
                           }
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-300 focus:border-pink-300"

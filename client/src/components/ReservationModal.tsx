@@ -3,7 +3,6 @@ import {
   Clock,
   Mail,
   Phone,
-  Calendar,
   Users,
   AlertCircle,
   ChevronLeft,
@@ -12,10 +11,7 @@ import {
   Info,
 } from "lucide-react";
 import { useState, FormEvent, useEffect, useMemo } from "react";
-import {
-  checkoutShift,
-  getAvailableShifts,
-} from "../services/shiftService";
+import { checkoutShift, getAvailableShifts } from "../services/shiftService";
 import { IShift } from "../interfaces/shift";
 import toast from "react-hot-toast";
 import { format } from "date-fns";
@@ -23,6 +19,7 @@ import { getUnitBusiness } from "../services/unitBusinessService";
 import { IUnitBusiness } from "../interfaces/unitBusiness";
 import { getConfigs } from "../services/config";
 import { IConfig } from "../interfaces/config";
+import DatePickerWithClosed from "./DatePickerWithClosed";
 
 const notifyError = (msg: string) => toast.error(msg);
 
@@ -35,6 +32,8 @@ interface ReservationModalProps {
 
 interface TimeSlot {
   availables: number;
+  availablesAdults: number;
+  availablesChildren: number;
   initialTime: string;
 }
 
@@ -110,6 +109,7 @@ export default function ReservationModal({
   const [availableSlots, setAvailableSlots] = useState<TimeSlot[]>([]);
   const [unitBusinessCode, setUnitBusinessCode] = useState<string>("");
   const [priceChild, setPriceChild] = useState<number>(0);
+  const [closedDates, setClosedDates] = useState<string[]>([]);
   const [slotTakenWarning, setSlotTakenWarning] = useState<string>("");
   const [revalidating, setRevalidating] = useState(false);
 
@@ -134,6 +134,15 @@ export default function ReservationModal({
           configs?.find((c) => c.code === "priceChild")?.value || 0,
         );
         setPriceChild(c);
+        const closedRaw = String(
+          configs?.find((c) => c.code === "closedDates")?.value || "",
+        );
+        setClosedDates(
+          closedRaw
+            .split(",")
+            .map((d) => d.trim())
+            .filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d)),
+        );
       } catch (e) {
         console.error("Error loading prices:", e);
       }
@@ -186,16 +195,24 @@ export default function ReservationModal({
 
   if (!isOpen) return null;
 
+  const adultsQty = formData.adultsQty || 0;
+  const childrenQty = formData.childrenQty || 0;
+
+  // Un horario no alcanza si no quedan lugares de adultos o de niños suficientes.
+  const slotInsufficient = (s: TimeSlot) =>
+    adultsQty > (s.availablesAdults ?? 0) ||
+    childrenQty > (s.availablesChildren ?? 0);
+
   const selectedSlot = availableSlots.find(
     (a) => a.initialTime === formData.timeStart,
   );
 
   const invalidOcupations =
-    peopleQty > 0 &&
-    !!formData.timeStart &&
-    peopleQty > (selectedSlot?.availables || 0);
+    !!formData.timeStart && !!selectedSlot && slotInsufficient(selectedSlot);
 
-  const canGoStep2 = peopleQty > 0 && !!formData.date;
+  const isDateClosed = closedDates.includes(formData.date);
+
+  const canGoStep2 = peopleQty > 0 && !!formData.date && !isDateClosed;
   const canGoStep3 = !!formData.timeStart && !invalidOcupations;
 
   const handleSubmit = async (e: FormEvent) => {
@@ -282,9 +299,9 @@ export default function ReservationModal({
         setFormData((prev) => ({ ...prev, timeStart: "" }));
         return;
       }
-      if (current.availables < peopleQty) {
+      if (slotInsufficient(current)) {
         setSlotTakenWarning(
-          `Mientras completabas se ocuparon lugares. Quedan ${current.availables} en ese horario.`,
+          `Mientras completabas se ocuparon lugares. Quedan ${current.availablesAdults} adultos y ${current.availablesChildren} niños en ese horario.`,
         );
         return;
       }
@@ -324,7 +341,7 @@ export default function ReservationModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[95vh] overflow-y-auto">
         <div className="sticky top-0 bg-gradient-to-r from-pink-300 to-blue-300 text-white p-6 rounded-t-2xl flex items-center justify-between z-10">
           <h2 className="text-2xl font-bold">Reservar Mesa</h2>
           <button
@@ -346,22 +363,23 @@ export default function ReservationModal({
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Fecha de Reserva *
                 </label>
-                <div className="relative">
-                  <Calendar
-                    size={18}
-                    className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
-                  />
-                  <input
-                    type="date"
-                    required
-                    min={format(new Date(), "yyyy-MM-dd")}
-                    value={formData.date}
-                    onChange={(e) =>
-                      setFormData({ ...formData, date: e.target.value })
-                    }
-                    className="w-full pl-10 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-400 focus:border-transparent"
-                  />
-                </div>
+                <DatePickerWithClosed
+                  value={formData.date}
+                  onChange={(d) => setFormData({ ...formData, date: d })}
+                  closedDates={closedDates}
+                />
+                {isDateClosed && (
+                  <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
+                    <AlertCircle
+                      size={18}
+                      className="text-red-600 mt-0.5 flex-shrink-0"
+                    />
+                    <p className="text-red-700 text-sm">
+                      El local permanece cerrado ese día. Por favor elegí otra
+                      fecha.
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -430,7 +448,7 @@ export default function ReservationModal({
                   </p>
                   {priceChild > 0 && (
                     <p className="text-xs text-gray-500 mt-1">
-                      Niño ${priceChild.toFixed(2)} · Adultos sin cargo
+                      Niño ${priceChild.toFixed(2)} · Adultos sin seña
                     </p>
                   )}
                 </div>
@@ -452,11 +470,10 @@ export default function ReservationModal({
                   No hay horarios disponibles para esta fecha.
                 </div>
               ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 max-h-72 overflow-y-auto p-2 bg-gray-50 rounded-lg">
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2 max-h-96 overflow-y-auto p-2 bg-gray-50 rounded-lg">
                   {availableSlots.map((sl) => {
                     const selected = formData.timeStart === sl.initialTime;
-                    const insufficient =
-                      peopleQty > 0 && sl.availables < peopleQty;
+                    const insufficient = slotInsufficient(sl);
                     return (
                       <button
                         key={sl.initialTime}
@@ -480,14 +497,17 @@ export default function ReservationModal({
                         <div className="flex flex-col items-center gap-1">
                           <Clock size={16} />
                           <span>{sl.initialTime}</span>
+                          <span className="text-[10px] uppercase tracking-wide text-gray-400">
+                            Disponibilidad
+                          </span>
                           <span
-                            className={`text-xs ${
-                              insufficient
-                                ? "text-red-500"
-                                : "text-green-600"
+                            className={`text-xs leading-tight text-center ${
+                              insufficient ? "text-red-500" : "text-green-600"
                             }`}
                           >
-                            {sl.availables} lugares
+                            {sl.availablesAdults} adultos
+                            <br />
+                            {sl.availablesChildren} niños
                           </span>
                         </div>
                       </button>
@@ -503,7 +523,8 @@ export default function ReservationModal({
                     className="text-orange-600 mt-0.5 flex-shrink-0"
                   />
                   <p className="text-orange-700 text-sm">
-                    Solo hay {selectedSlot?.availables} lugares en ese horario.
+                    Quedan {selectedSlot?.availablesAdults} adultos y{" "}
+                    {selectedSlot?.availablesChildren} niños en ese horario.
                   </p>
                 </div>
               )}
@@ -522,64 +543,69 @@ export default function ReservationModal({
 
           {step === 3 && (
             <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Nombre del Cliente *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={formData.client}
-                  placeholder="Ej: Juan Pérez"
-                  onChange={(e) =>
-                    setFormData({ ...formData, client: e.target.value })
-                  }
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-400 focus:border-transparent"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Email *
-                </label>
-                <div className="relative">
-                  <Mail
-                    size={18}
-                    className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
-                  />
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Nombre del Cliente *
+                  </label>
                   <input
-                    type="email"
+                    type="text"
                     required
-                    value={formData.email}
-                    placeholder="correo@ejemplo.com"
+                    value={formData.client}
+                    placeholder="Ej: Juan Pérez"
                     onChange={(e) =>
-                      setFormData({ ...formData, email: e.target.value })
+                      setFormData({ ...formData, client: e.target.value })
                     }
-                    className="w-full pl-10 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-400 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-400 focus:border-transparent"
                   />
                 </div>
-              </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Teléfono *
-                </label>
-                <div className="relative">
-                  <Phone
-                    size={18}
-                    className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
-                  />
-                  <input
-                    type="tel"
-                    required
-                    pattern="[0-9+\s-]{6,}"
-                    value={formData.phoneNumber}
-                    placeholder="2614789647"
-                    onChange={(e) =>
-                      setFormData({ ...formData, phoneNumber: e.target.value })
-                    }
-                    className="w-full pl-10 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-400 focus:border-transparent"
-                  />
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Email *
+                  </label>
+                  <div className="relative">
+                    <Mail
+                      size={18}
+                      className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+                    />
+                    <input
+                      type="email"
+                      required
+                      value={formData.email}
+                      placeholder="correo@ejemplo.com"
+                      onChange={(e) =>
+                        setFormData({ ...formData, email: e.target.value })
+                      }
+                      className="w-full pl-10 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-400 focus:border-transparent"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Teléfono *
+                  </label>
+                  <div className="relative">
+                    <Phone
+                      size={18}
+                      className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+                    />
+                    <input
+                      type="tel"
+                      required
+                      pattern="[0-9+\s-]{6,}"
+                      value={formData.phoneNumber}
+                      placeholder="2614789647"
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          phoneNumber: e.target.value,
+                        })
+                      }
+                      className="w-full pl-10 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-400 focus:border-transparent"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -613,14 +639,11 @@ export default function ReservationModal({
                   <div className="pt-2 mt-2 border-t border-blue-200">
                     {priceChild > 0 && (formData.childrenQty || 0) > 0 && (
                       <p className="text-xs text-gray-600">
-                        {formData.childrenQty} × ${priceChild.toFixed(2)} ={" "}
-                        $
+                        {formData.childrenQty} × ${priceChild.toFixed(2)} = $
                         {((formData.childrenQty || 0) * priceChild).toFixed(2)}
                       </p>
                     )}
-                    <p className="text-xs text-gray-600">
-                      Adultos sin cargo
-                    </p>
+                    <p className="text-xs text-gray-600">Adultos sin seña</p>
                     <p className="font-bold text-base text-pink-600 mt-1">
                       Total: ${totalPrice.toFixed(2)}
                     </p>
@@ -642,7 +665,9 @@ export default function ReservationModal({
                     </p>
                   ) : (
                     <p>
-                      <strong>Tu reserva queda pendiente de confirmación</strong>{" "}
+                      <strong>
+                        Tu reserva queda pendiente de confirmación
+                      </strong>{" "}
                       hasta que la validemos.
                     </p>
                   )}

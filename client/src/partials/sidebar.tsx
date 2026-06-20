@@ -13,6 +13,7 @@ import {
   Store,
   Coffee,
   Building2,
+  CalendarOff,
   LogOut,
   User as UserIcon,
   ChevronDown,
@@ -279,6 +280,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
                               <Building2 className="w-4 h-4 shrink-0" />
                               <span className="text-sm font-medium ml-2 truncate">
                                 Empresa
+                              </span>
+                            </NavLink>
+                          </li>
+                          <li>
+                            <NavLink
+                              end
+                              to="/settings/closed-dates"
+                              className={({ isActive: a }) =>
+                                subLinkClasses(a)
+                              }
+                            >
+                              <CalendarOff className="w-4 h-4 shrink-0" />
+                              <span className="text-sm font-medium ml-2 truncate">
+                                Días cerrados
                               </span>
                             </NavLink>
                           </li>

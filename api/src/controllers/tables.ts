@@ -28,6 +28,8 @@ export class TableController {
       const companyCode = res.locals.companyCode;
       const table: ITable = req.body;
       table.companyCode = companyCode;
+      // capacity (legacy) = suma de capacidades diferenciadas
+      table.capacity = (table.adultCapacity || 0) + (table.childrenCapacity || 0);
       delete table._id;
       const exist = await tableService.findOne({
         companyCode: companyCode,
@@ -50,6 +52,9 @@ export class TableController {
     const logger = new Log(res.locals.requestId, "TableController.update");
     try {
       const tableUpdate: ITable = req.body;
+      // capacity (legacy) = suma de capacidades diferenciadas
+      tableUpdate.capacity =
+        (tableUpdate.adultCapacity || 0) + (tableUpdate.childrenCapacity || 0);
       /** Verificar si existe */
       const exist = await tableService.findOne({
         _id: tableUpdate._id,

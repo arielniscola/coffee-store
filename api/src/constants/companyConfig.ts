@@ -139,6 +139,42 @@ export const DEFAULT_COMPANY_SETTINGS = [
     description: "Horarios para dia Domingos. Ej. 14:00-18:00, 20:00-23:00",
   },
   {
+    code: "closedDates",
+    type: "company",
+    dataType: "string",
+    name: "Fechas cerradas",
+    value: "-",
+    description:
+      "Fechas en las que el local permanece cerrado y no se pueden realizar reservas. Formato yyyy-MM-dd separadas por coma.",
+  },
+  {
+    code: "capacityMode",
+    type: "company",
+    dataType: "string",
+    name: "Modo de capacidad",
+    value: "tables",
+    description:
+      "Cómo se calcula la capacidad por turno: 'tables' suma la capacidad de las mesas activas; 'manual' usa los máximos de adultos y niños configurados abajo.",
+  },
+  {
+    code: "maxAdults",
+    type: "company",
+    dataType: "number",
+    name: "Máximo de adultos (modo manual)",
+    value: 0,
+    description:
+      "Cantidad máxima de adultos por turno cuando el modo de capacidad es 'manual'.",
+  },
+  {
+    code: "maxChildren",
+    type: "company",
+    dataType: "number",
+    name: "Máximo de niños (modo manual)",
+    value: 0,
+    description:
+      "Cantidad máxima de niños por turno cuando el modo de capacidad es 'manual'.",
+  },
+  {
     code: "smtpHost",
     type: "company",
     dataType: "string",
