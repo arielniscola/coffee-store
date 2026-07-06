@@ -21,28 +21,25 @@ import { IShift } from "../../interfaces/shift";
 import { ICompany } from "../../interfaces/company";
 import { getCompany } from "../../services/company";
 import { getConfigs } from "../../services/config";
+import { getWeeklySchedule } from "../../services/weeklyScheduleService";
+import { getPublicScheduleExceptions } from "../../services/scheduleExceptionService";
+import { IScheduleException } from "../../interfaces/scheduleException";
+import { formatDateRange } from "../../utils/dates";
 import { IConfig } from "../../interfaces/config";
+import {
+  IWeeklySchedule,
+  ITimeRange,
+  WEEKDAYS,
+  emptyWeeklySchedule,
+} from "../../interfaces/weeklySchedule";
+import { getUpcomingWorkshops } from "../../services/workshopService";
+import { IWorkshop } from "../../interfaces/workshop";
+import WorkshopGallery from "../../components/WorkshopGallery";
 
-// Orden de la semana y etiqueta visible para cada config de horario.
-const SCHEDULE_DAYS: { code: string; label: string }[] = [
-  { code: "scheduleDayMonday", label: "Lunes" },
-  { code: "scheduleDayTuesday", label: "Martes" },
-  { code: "scheduleDayWednesday", label: "Miércoles" },
-  { code: "scheduleDayThursday", label: "Jueves" },
-  { code: "scheduleDayFriday", label: "Viernes" },
-  { code: "scheduleDaySaturday", label: "Sábado" },
-  { code: "scheduleDaySunday", label: "Domingo" },
-];
-
-// "09:00-18:00, 20:00-23:00" -> "09:00 - 18:00 · 20:00 - 23:00".
-// Si no hay franjas válidas devuelve "Cerrado".
-function formatSchedule(raw?: string): string {
-  const ranges = String(raw ?? "")
-    .split(",")
-    .map((r) => r.trim())
-    .filter((r) => /^\d{1,2}:\d{2}-\d{1,2}:\d{2}$/.test(r));
-  if (!ranges.length) return "Cerrado";
-  return ranges.map((r) => r.split("-").join(" - ")).join(" · ");
+// Franjas de un día -> "09:00 - 18:00 · 20:00 - 23:00". Vacío -> "Cerrado".
+function formatRanges(ranges: ITimeRange[]): string {
+  if (!ranges?.length) return "Cerrado";
+  return ranges.map((r) => `${r.start} - ${r.end}`).join(" · ");
 }
 
 interface ScheduleGroup {
@@ -52,15 +49,13 @@ interface ScheduleGroup {
 
 // Agrupa días consecutivos con el mismo horario para mostrar rangos como
 // "Lunes a Viernes" en lugar de listar cada día por separado.
-function buildScheduleGroups(configs: IConfig[]): ScheduleGroup[] {
+function buildScheduleGroups(schedule: IWeeklySchedule): ScheduleGroup[] {
   const groups: { days: string[]; hours: string }[] = [];
-  for (const day of SCHEDULE_DAYS) {
-    const hours = formatSchedule(
-      configs.find((c) => c.code === day.code)?.value as string | undefined,
-    );
+  for (const { key, label } of WEEKDAYS) {
+    const hours = formatRanges(schedule[key]);
     const last = groups[groups.length - 1];
-    if (last && last.hours === hours) last.days.push(day.label);
-    else groups.push({ days: [day.label], hours });
+    if (last && last.hours === hours) last.days.push(label);
+    else groups.push({ days: [label], hours });
   }
   return groups.map(({ days, hours }) => ({
     hours,
@@ -77,11 +72,23 @@ function LandingPage() {
   const [company, setCompany] = useState<ICompany | undefined>();
   const [priceChild, setPriceChild] = useState<number>(0);
   const [scheduleGroups, setScheduleGroups] = useState<ScheduleGroup[]>([]);
+  const [workshops, setWorkshops] = useState<IWorkshop[]>([]);
+  const [specialDates, setSpecialDates] = useState<IScheduleException[]>([]);
 
   useEffect(() => {
     loadProfile();
     loadPrices();
+    loadWorkshops();
+    loadSpecialDates();
   }, []);
+
+  async function loadWorkshops() {
+    setWorkshops(await getUpcomingWorkshops());
+  }
+
+  async function loadSpecialDates() {
+    setSpecialDates(await getPublicScheduleExceptions());
+  }
 
   async function loadProfile() {
     try {
@@ -101,7 +108,10 @@ function LandingPage() {
         configs?.find((c) => c.code === "priceChild")?.value || 0,
       );
       setPriceChild(c);
-      setScheduleGroups(buildScheduleGroups(configs || []));
+      const schedule = await getWeeklySchedule();
+      setScheduleGroups(
+        buildScheduleGroups(schedule || emptyWeeklySchedule()),
+      );
     } catch (error) {
       console.error("Error loading prices:", error);
     }
@@ -110,6 +120,10 @@ function LandingPage() {
   const whatsappLink = company?.cellphone
     ? `https://wa.me/${company.cellphone.replace(/\D/g, "")}`
     : undefined;
+
+  // Fechas especiales = aperturas con horarios especiales en un rango de fechas.
+  // Los días cerrados no se listan: ya se ven bloqueados en el calendario.
+  const hasSpecialDates = specialDates.length > 0;
 
   return (
     <div className="min-h-screen bg-blue-50">
@@ -172,6 +186,8 @@ function LandingPage() {
             </div>
           </div>
         </section>
+
+        <WorkshopGallery />
 
         <section className="bg-gradient-to-b from-blue-50 to-pink-50 py-16 md:py-20">
           <div className="container mx-auto px-6">
@@ -279,6 +295,41 @@ function LandingPage() {
                     </div>
                   );
                 })}
+              </div>
+            )}
+
+            {hasSpecialDates && (
+              <div className="max-w-2xl mx-auto mt-10">
+                <div className="flex items-center justify-center gap-2 mb-5">
+                  <Clock className="w-5 h-5 text-pink-400" />
+                  <h3 className="text-xl font-bold text-gray-800">
+                    Fechas especiales
+                  </h3>
+                </div>
+
+                {specialDates.length > 0 && (
+                  <div className="bg-green-50 border border-green-100 rounded-xl p-5">
+                    <p className="text-sm font-semibold text-green-700 mb-3 flex items-center gap-1.5">
+                      <Clock className="w-4 h-4" />
+                      Aperturas con horarios especiales
+                    </p>
+                    <ul className="space-y-1.5">
+                      {specialDates.map((e) => (
+                        <li
+                          key={e._id}
+                          className="text-sm text-green-800 flex flex-wrap items-baseline gap-x-2"
+                        >
+                          <span className="font-medium">
+                            {formatDateRange(e.dateFrom, e.dateTo)}
+                          </span>
+                          <span className="text-green-600 font-semibold">
+                            {e.timeStart} - {e.timeEnd} hs
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -431,6 +482,9 @@ function LandingPage() {
         onClose={() => setIsModalOpen(false)}
         setFormOpen={setIsFormOpen}
         priceChild={priceChild}
+        workshopPrices={workshops.map((w) => w.priceChild)}
+        scheduleGroups={scheduleGroups}
+        specialDates={specialDates}
       />
 
       <ReservationModal

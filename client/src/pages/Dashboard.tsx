@@ -1,10 +1,24 @@
 import { useEffect, useState } from "react";
 import { Sidebar } from "../partials/sidebar";
 import Header from "../partials/headers";
-import { Calendar, Users, Clock, TrendingUp } from "lucide-react";
+import {
+  Calendar,
+  Users,
+  Clock,
+  TrendingUp,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 import { getShifts } from "../services/shiftService";
 import { IShift } from "../interfaces/shift";
-import { format } from "date-fns";
+import { format, addDays, parseISO } from "date-fns";
+
+// yyyy-MM-dd -> "dd/MM/yyyy" sin construir Date (evita saltos de zona horaria).
+const formatDateLabel = (d: string): string => {
+  const [y, m, day] = d.split("-");
+  if (!y || !m || !day) return d;
+  return `${day}/${m}/${y}`;
+};
 
 
 interface KpiCardProps {
@@ -32,12 +46,14 @@ const Dashboard = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [shifts, setShifts] = useState<IShift[]>([]);
   const [loading, setLoading] = useState(true);
+  const todayStr = format(new Date(), "yyyy-MM-dd");
+  const [selectedDate, setSelectedDate] = useState<string>(todayStr);
 
   useEffect(() => {
     const load = async () => {
       try {
-        const today = format(new Date(), "yyyy-MM-dd");
-        const data = await getShifts(today);
+        setLoading(true);
+        const data = await getShifts(selectedDate);
         setShifts(Array.isArray(data) ? (data as IShift[]) : []);
       } catch (e) {
         console.error("Error cargando reservas:", e);
@@ -46,24 +62,27 @@ const Dashboard = () => {
       }
     };
     load();
-  }, []);
+  }, [selectedDate]);
 
-  const todayStr = format(new Date(), "yyyy-MM-dd");
-  const todayShifts = shifts.filter((s) => {
+  const isToday = selectedDate === todayStr;
+  // Un día de diferencia sobre la fecha seleccionada (parseISO da medianoche local).
+  const shiftDate = (delta: number) =>
+    setSelectedDate(format(addDays(parseISO(selectedDate), delta), "yyyy-MM-dd"));
+
+  const dayShifts = shifts.filter((s) => {
     if (!s.date) return false;
     const d =
-      typeof s.date === "string" ? s.date.slice(0, 10) : format(new Date(s.date), "yyyy-MM-dd");
-    return d === todayStr && s.status !== "cancelled";
+      typeof s.date === "string"
+        ? s.date.slice(0, 10)
+        : format(new Date(s.date), "yyyy-MM-dd");
+    return d === selectedDate && s.status !== "cancelled";
   });
-  const confirmedToday = todayShifts.filter(
+  const confirmedDay = dayShifts.filter(
     (s) => s.status === "confirmed" || s.status === "paid",
   );
-  const pendingToday = todayShifts.filter((s) => s.status === "toConfirm");
-  const peopleToday = todayShifts.reduce(
-    (acc, s) => acc + (s.peopleQty || 0),
-    0,
-  );
-  const upcoming = [...todayShifts]
+  const pendingDay = dayShifts.filter((s) => s.status === "toConfirm");
+  const peopleDay = dayShifts.reduce((acc, s) => acc + (s.peopleQty || 0), 0);
+  const upcoming = [...dayShifts]
     .filter((s) => s.timeStart)
     .sort((a, b) => a.timeStart.localeCompare(b.timeStart))
     .slice(0, 5);
@@ -75,37 +94,78 @@ const Dashboard = () => {
         <Header sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
         <main className="bg-gray-50 min-h-full">
           <div className="px-4 sm:px-6 lg:px-8 py-8 max-w-7xl mx-auto w-full">
-            <div className="mb-8">
-              <h1 className="text-2xl md:text-3xl font-bold text-gray-800">
-                Panel de Control
-              </h1>
-              <p className="text-gray-500 mt-1">
-                Resumen del día — {format(new Date(), "dd/MM/yyyy")}
-              </p>
+            <div className="mb-8 flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+              <div>
+                <h1 className="text-2xl md:text-3xl font-bold text-gray-800">
+                  Panel de Control
+                </h1>
+                <p className="text-gray-500 mt-1">
+                  {isToday ? "Resumen del día — " : "Resumen del "}
+                  {formatDateLabel(selectedDate)}
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => shiftDate(-1)}
+                  className="p-2 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 hover:text-pink-500 transition-colors"
+                  aria-label="Día anterior"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+                <div className="relative">
+                  <Calendar className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <input
+                    type="date"
+                    value={selectedDate}
+                    onChange={(e) =>
+                      setSelectedDate(e.target.value || todayStr)
+                    }
+                    className="pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-700 focus:ring-2 focus:ring-pink-400 focus:border-transparent"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => shiftDate(1)}
+                  className="p-2 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 hover:text-pink-500 transition-colors"
+                  aria-label="Día siguiente"
+                >
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedDate(todayStr)}
+                  disabled={isToday}
+                  className="px-3 py-2 rounded-lg text-sm font-semibold border border-gray-200 bg-white text-gray-700 hover:bg-pink-50 hover:text-pink-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:text-gray-700"
+                >
+                  Hoy
+                </button>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
               <KpiCard
-                label="Reservas hoy"
-                value={loading ? "…" : todayShifts.length}
+                label={isToday ? "Reservas hoy" : "Reservas"}
+                value={loading ? "…" : dayShifts.length}
                 icon={<Calendar className="w-6 h-6" />}
                 gradient="bg-gradient-to-br from-pink-400 to-pink-500"
               />
               <KpiCard
                 label="Confirmadas"
-                value={loading ? "…" : confirmedToday.length}
+                value={loading ? "…" : confirmedDay.length}
                 icon={<TrendingUp className="w-6 h-6" />}
                 gradient="bg-gradient-to-br from-green-400 to-green-500"
               />
               <KpiCard
                 label="Pendientes"
-                value={loading ? "…" : pendingToday.length}
+                value={loading ? "…" : pendingDay.length}
                 icon={<Clock className="w-6 h-6" />}
                 gradient="bg-gradient-to-br from-yellow-400 to-orange-400"
               />
               <KpiCard
                 label="Personas"
-                value={loading ? "…" : peopleToday}
+                value={loading ? "…" : peopleDay}
                 icon={<Users className="w-6 h-6" />}
                 gradient="bg-gradient-to-br from-blue-400 to-blue-500"
               />
@@ -114,13 +174,17 @@ const Dashboard = () => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="lg:col-span-2 bg-white rounded-xl shadow-md p-6">
                 <h2 className="text-lg font-semibold text-gray-800 mb-4">
-                  Próximas reservas de hoy
+                  {isToday
+                    ? "Próximas reservas de hoy"
+                    : `Reservas del ${formatDateLabel(selectedDate)}`}
                 </h2>
                 {loading ? (
                   <p className="text-gray-500">Cargando...</p>
                 ) : upcoming.length === 0 ? (
                   <p className="text-gray-500">
-                    No hay reservas programadas para hoy.
+                    {isToday
+                      ? "No hay reservas programadas para hoy."
+                      : "No hay reservas programadas para esta fecha."}
                   </p>
                 ) : (
                   <div className="divide-y divide-gray-100">

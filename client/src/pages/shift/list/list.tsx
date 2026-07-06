@@ -1,25 +1,19 @@
 import { useState, useEffect, useMemo } from "react";
 import {
   Calendar,
-  Clock,
-  Users,
-  Mail,
-  Phone,
   Trash2,
   Check,
   X,
-  ChevronLeft,
-  ChevronRight,
   Search,
-  DollarSign,
+  Users,
 } from "lucide-react";
 import {
   deleteShift,
-  getShifts,
+  getShiftsRange,
   updateShift,
 } from "../../../services/shiftService";
 import { IShift } from "../../../interfaces/shift";
-import { addDays, format } from "date-fns";
+import { format } from "date-fns";
 import toast from "react-hot-toast";
 import ModalDelete from "../../../components/DeleteModal";
 
@@ -93,18 +87,22 @@ export function ReservationList() {
   const [deleteId, setDeleteId] = useState<string>("");
   const [filter, setFilter] = useState<StatusFilter>("all");
   const [search, setSearch] = useState("");
-  const [currentDate, setCurrentDate] = useState(new Date());
+  // El filtro de fecha de inicio arranca en el día actual; el de fin queda
+  // abierto para ver todos los turnos desde hoy en adelante.
+  const [dateFrom, setDateFrom] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [dateTo, setDateTo] = useState("");
 
   useEffect(() => {
     loadReservations();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentDate]);
+  }, [dateFrom, dateTo]);
 
   async function loadReservations() {
     try {
       setLoading(true);
-      const data = (await getShifts(
-        format(currentDate, "yyyy-MM-dd"),
+      const data = (await getShiftsRange(
+        dateFrom || undefined,
+        dateTo || undefined,
       )) as IShift[];
       setReservations(Array.isArray(data) ? data : []);
     } catch (error) {
@@ -125,14 +123,21 @@ export function ReservationList() {
       filter === "all"
         ? reservations
         : reservations.filter((r) => r.status === filter);
-    if (!search.trim()) return byStatus;
-    const q = search.toLowerCase();
-    return byStatus.filter(
-      (r) =>
-        r.client?.toLowerCase().includes(q) ||
-        r.email?.toLowerCase().includes(q) ||
-        r.phoneNumber?.includes(q),
-    );
+    const q = search.trim().toLowerCase();
+    const bySearch = !q
+      ? byStatus
+      : byStatus.filter(
+          (r) =>
+            r.client?.toLowerCase().includes(q) ||
+            r.email?.toLowerCase().includes(q) ||
+            r.phoneNumber?.includes(q),
+        );
+    // Ordenar por fecha y luego por hora de inicio.
+    return [...bySearch].sort((a, b) => {
+      const da = new Date(a.date).getTime() - new Date(b.date).getTime();
+      if (da !== 0) return da;
+      return (a.timeStart || "").localeCompare(b.timeStart || "");
+    });
   }, [reservations, filter, search]);
 
   const deleteReservation = async () => {
@@ -170,49 +175,62 @@ export function ReservationList() {
     ).padStart(2, "0")}/${date.getUTCFullYear()}`;
   };
 
+  const resetToToday = () => {
+    setDateFrom(format(new Date(), "yyyy-MM-dd"));
+    setDateTo("");
+  };
+
+  const clearDates = () => {
+    setDateFrom("");
+    setDateTo("");
+  };
+
   return (
     <div className="space-y-5 p-4 md:p-6 bg-gray-50 min-h-screen">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+      <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold text-gray-800">
             Reservas
           </h1>
-          <p className="text-gray-500 text-sm capitalize">
-            {currentDate.toLocaleDateString("es-ES", {
-              weekday: "long",
-              day: "numeric",
-              month: "long",
-              year: "numeric",
-            })}
+          <p className="text-gray-500 text-sm">
+            {filtered.length} reserva{filtered.length !== 1 ? "s" : ""}
+            {dateFrom || dateTo ? " en el rango seleccionado" : " (todas)"}
           </p>
         </div>
-        <div className="flex items-center gap-2 bg-white rounded-lg shadow-sm border border-gray-200 px-2 py-1">
-          <button
-            onClick={() => setCurrentDate(addDays(currentDate, -1))}
-            className="p-2 hover:bg-gray-100 rounded-md transition-colors"
-            aria-label="Día anterior"
-          >
-            <ChevronLeft className="w-5 h-5 text-gray-600" />
-          </button>
-          <input
-            type="date"
-            value={format(currentDate, "yyyy-MM-dd")}
-            onChange={(e) => setCurrentDate(new Date(e.target.value))}
-            className="px-3 py-1.5 border-0 focus:ring-0 text-gray-700 bg-transparent"
-          />
-          <button
-            onClick={() => setCurrentDate(addDays(currentDate, 1))}
-            className="p-2 hover:bg-gray-100 rounded-md transition-colors"
-            aria-label="Día siguiente"
-          >
-            <ChevronRight className="w-5 h-5 text-gray-600" />
-          </button>
-          <button
-            onClick={() => setCurrentDate(new Date())}
-            className="ml-1 px-3 py-1.5 text-sm font-medium text-pink-500 hover:bg-pink-50 rounded-md transition-colors"
-          >
-            Hoy
-          </button>
+        <div className="flex flex-wrap items-end gap-3">
+          <label className="flex flex-col">
+            <span className="text-xs font-medium text-gray-500 mb-1">Desde</span>
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-gray-700 focus:ring-2 focus:ring-pink-300 focus:border-pink-300"
+            />
+          </label>
+          <label className="flex flex-col">
+            <span className="text-xs font-medium text-gray-500 mb-1">Hasta</span>
+            <input
+              type="date"
+              value={dateTo}
+              min={dateFrom || undefined}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-gray-700 focus:ring-2 focus:ring-pink-300 focus:border-pink-300"
+            />
+          </label>
+          <div className="flex gap-1">
+            <button
+              onClick={resetToToday}
+              className="px-3 py-1.5 text-sm font-medium text-pink-500 hover:bg-pink-50 rounded-lg border border-gray-200 bg-white transition-colors"
+            >
+              Hoy
+            </button>
+            <button
+              onClick={clearDates}
+              className="px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg border border-gray-200 bg-white transition-colors"
+            >
+              Ver todas
+            </button>
+          </div>
         </div>
       </div>
 
@@ -264,112 +282,119 @@ export function ReservationList() {
           <p className="text-gray-500">No hay reservas para mostrar</p>
         </div>
       ) : (
-        <div className="grid gap-3">
-          {filtered.map((r) => {
-            const meta = STATUS_META[r.status] || STATUS_META.completed;
-            const adults = r.adultsQty ?? r.peopleQty ?? 0;
-            const children = r.childrenQty ?? 0;
-            return (
-              <div
-                key={r._id}
-                className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md transition-shadow"
-              >
-                <div className="flex justify-between items-start mb-3 flex-wrap gap-2">
-                  <div className="flex items-center gap-3">
-                    <span className={`w-2 h-2 rounded-full ${meta.dot}`} />
-                    <h3 className="text-lg font-semibold text-gray-800">
-                      {r.client || "Sin nombre"}
-                    </h3>
-                    <span
-                      className={`px-2.5 py-0.5 rounded-full text-xs font-medium border ${meta.badge}`}
-                    >
-                      {meta.label}
-                    </span>
-                  </div>
-                  <div className="flex gap-1">
-                    {r.status === "toConfirm" && (
-                      <>
-                        <button
-                          onClick={() => updateStatus(r, "confirmed")}
-                          className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                          title="Confirmar"
-                        >
-                          <Check className="w-5 h-5" />
-                        </button>
-                        <button
-                          onClick={() => updateStatus(r, "cancelled")}
-                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                          title="Cancelar"
-                        >
-                          <X className="w-5 h-5" />
-                        </button>
-                      </>
-                    )}
-                    <button
-                      onClick={() => {
-                        setDeleteId(r._id || "");
-                        setDeleteModalOpen(true);
-                      }}
-                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                      title="Eliminar"
-                    >
-                      <Trash2 className="w-5 h-5" />
-                    </button>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 text-sm">
-                  <div className="flex items-center gap-2 text-gray-600">
-                    <Calendar className="w-4 h-4 text-gray-400" />
-                    {formatShiftDate(r.date)}
-                  </div>
-                  <div className="flex items-center gap-2 text-gray-600">
-                    <Mail className="w-4 h-4 text-gray-400" />
-                    <span className="truncate">{r.email}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-gray-600">
-                    <Clock className="w-4 h-4 text-gray-400" />
-                    {r.timeStart || "N/A"}
-                  </div>
-                  <div className="flex items-center gap-2 text-gray-600">
-                    <Phone className="w-4 h-4 text-gray-400" />
-                    {r.phoneNumber}
-                  </div>
-                  <div className="flex items-center gap-2 text-gray-600">
-                    <Users className="w-4 h-4 text-gray-400" />
-                    {adults} adulto{adults !== 1 ? "s" : ""}
-                    {children > 0 &&
-                      `, ${children} niño${children !== 1 ? "s" : ""}`}
-                  </div>
-                  {(r.price || 0) > 0 && (
-                    <div className="flex items-center gap-2 text-gray-600">
-                      <DollarSign className="w-4 h-4 text-gray-400" />
-                      <span className="font-semibold text-gray-700">
-                        ${r.price?.toFixed(2)}
-                      </span>
-                      {r.paymentId && (
-                        <span
-                          className="text-xs text-gray-400 truncate"
-                          title={r.paymentId}
-                        >
-                          · MP {String(r.paymentId).slice(-8)}
+        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wide">
+                  <th className="text-left font-semibold px-4 py-3">Fecha</th>
+                  <th className="text-left font-semibold px-4 py-3">Hora</th>
+                  <th className="text-left font-semibold px-4 py-3">Cliente</th>
+                  <th className="text-left font-semibold px-4 py-3">Personas</th>
+                  <th className="text-left font-semibold px-4 py-3">Contacto</th>
+                  <th className="text-right font-semibold px-4 py-3">Precio</th>
+                  <th className="text-left font-semibold px-4 py-3">Estado</th>
+                  <th className="text-right font-semibold px-4 py-3">Acciones</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {filtered.map((r) => {
+                  const meta = STATUS_META[r.status] || STATUS_META.completed;
+                  const adults = r.adultsQty ?? r.peopleQty ?? 0;
+                  const children = r.childrenQty ?? 0;
+                  return (
+                    <tr key={r._id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-4 py-3 whitespace-nowrap text-gray-700">
+                        {formatShiftDate(r.date)}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-gray-700">
+                        {r.timeStart || "N/A"}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="font-medium text-gray-800">
+                          {r.client || "Sin nombre"}
+                        </div>
+                        {r.description && (
+                          <div
+                            className="text-xs text-gray-400 truncate max-w-[200px]"
+                            title={r.description}
+                          >
+                            {r.description}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-gray-600">
+                        <span className="inline-flex items-center gap-1.5">
+                          <Users className="w-3.5 h-3.5 text-gray-400" />
+                          {adults}
+                          {children > 0 && ` + ${children} niño${
+                            children !== 1 ? "s" : ""
+                          }`}
                         </span>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {r.description && (
-                  <div className="mt-3 pt-3 border-t border-gray-100">
-                    <p className="text-sm text-gray-600">
-                      <span className="font-medium">Notas:</span>{" "}
-                      {r.description}
-                    </p>
-                  </div>
-                )}
-              </div>
-            );
-          })}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="text-gray-700 truncate max-w-[200px]" title={r.email}>
+                          {r.email || "—"}
+                        </div>
+                        <div className="text-xs text-gray-400">
+                          {r.phoneNumber || ""}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-right">
+                        {(r.price || 0) > 0 ? (
+                          <span className="font-semibold text-gray-700">
+                            ${r.price?.toFixed(2)}
+                          </span>
+                        ) : (
+                          <span className="text-gray-300">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <span
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${meta.badge}`}
+                        >
+                          <span className={`w-1.5 h-1.5 rounded-full ${meta.dot}`} />
+                          {meta.label}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div className="flex justify-end gap-1">
+                          {r.status === "toConfirm" && (
+                            <>
+                              <button
+                                onClick={() => updateStatus(r, "confirmed")}
+                                className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                                title="Confirmar"
+                              >
+                                <Check className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => updateStatus(r, "cancelled")}
+                                className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                title="Cancelar"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </>
+                          )}
+                          <button
+                            onClick={() => {
+                              setDeleteId(r._id || "");
+                              setDeleteModalOpen(true);
+                            }}
+                            className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            title="Eliminar"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 

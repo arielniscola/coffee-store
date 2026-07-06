@@ -8,6 +8,10 @@ import { AuthenticationController } from "./controllers/authentication";
 import { TableController } from "./controllers/tables";
 import { ConfigController } from "./controllers/config";
 import { PaymentsController } from "./controllers/payments";
+import { ScheduleExceptionController } from "./controllers/scheduleException";
+import { WeeklyScheduleController } from "./controllers/weeklySchedule";
+import { WorkshopController } from "./controllers/workshop";
+import { WorkshopGalleryController } from "./controllers/workshopGallery";
 
 /**
  * Declaracion de Rutas.
@@ -131,6 +135,13 @@ const routes = defineRoutes([
         auth: false,
       },
       {
+        path: "/shifts/closed-dates",
+        label: "Turnos",
+        method: "get",
+        controller: ShiftController.closedDates,
+        auth: false,
+      },
+      {
         path: "/shifts/checkout",
         label: "Turnos",
         method: "post",
@@ -143,6 +154,101 @@ const routes = defineRoutes([
         method: "get",
         controller: ShiftController.paymentStatus,
         auth: false,
+      },
+      // Horario semanal estructurado
+      {
+        path: "/weekly-schedule",
+        label: "Horario semanal",
+        method: "get",
+        controller: WeeklyScheduleController.find,
+        auth: false,
+      },
+      {
+        path: "/weekly-schedule",
+        label: "Horario semanal",
+        method: "put",
+        controller: WeeklyScheduleController.update,
+        auth: true,
+      },
+      // Excepciones de horario (abrir/cerrar franjas por rango de fechas)
+      {
+        path: "/schedule-exceptions/public",
+        label: "Excepciones de horario",
+        method: "get",
+        controller: ScheduleExceptionController.publicUpcoming,
+        auth: false,
+      },
+      {
+        path: "/schedule-exceptions",
+        label: "Excepciones de horario",
+        method: "get",
+        controller: ScheduleExceptionController.find,
+        auth: true,
+      },
+      {
+        path: "/schedule-exceptions",
+        label: "Excepciones de horario",
+        method: "post",
+        controller: ScheduleExceptionController.create,
+        auth: true,
+      },
+      {
+        path: "/schedule-exceptions/:id",
+        label: "Excepciones de horario",
+        method: "delete",
+        controller: ScheduleExceptionController.delete,
+        auth: true,
+      },
+      // Talleres (días especiales con precio de niño propio e imágenes)
+      {
+        path: "/workshops",
+        label: "Talleres",
+        method: "get",
+        controller: WorkshopController.find,
+        auth: true,
+      },
+      {
+        path: "/workshops/upcoming",
+        label: "Talleres",
+        method: "get",
+        controller: WorkshopController.findUpcoming,
+        auth: false,
+      },
+      {
+        path: "/workshops",
+        label: "Talleres",
+        method: "post",
+        controller: WorkshopController.create,
+        auth: true,
+      },
+      {
+        path: "/workshops",
+        label: "Talleres",
+        method: "put",
+        controller: WorkshopController.update,
+        auth: true,
+      },
+      {
+        path: "/workshops/:id",
+        label: "Talleres",
+        method: "delete",
+        controller: WorkshopController.delete,
+        auth: true,
+      },
+      // Galería general de talleres (imágenes informativas)
+      {
+        path: "/workshop-gallery",
+        label: "Talleres",
+        method: "get",
+        controller: WorkshopGalleryController.find,
+        auth: false,
+      },
+      {
+        path: "/workshop-gallery",
+        label: "Talleres",
+        method: "put",
+        controller: WorkshopGalleryController.update,
+        auth: true,
       },
       // Pagos Mercado Pago
       {

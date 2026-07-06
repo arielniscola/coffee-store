@@ -27,6 +27,33 @@ export const getShifts = async (date: string, unitBusiness?: string) => {
   }
 };
 
+export const getShiftsRange = async (
+  dateFrom?: string,
+  dateTo?: string,
+  unitBusiness?: string,
+) => {
+  try {
+    const params = new URLSearchParams();
+    if (dateFrom) params.set("dateFrom", dateFrom);
+    if (dateTo) params.set("dateTo", dateTo);
+    if (unitBusiness) params.set("unitBusiness", unitBusiness);
+    const res = await fetch(`${URL_API}/shifts?${params.toString()}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${localStorage.getItem("token")}`,
+      },
+    });
+    if (res.status === 401) unauthorized();
+    const response: ResponseApi<IShift> = await res.json();
+    if (!res.ok && typeof response.data == "string")
+      throw new Error(response.data);
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
+};
+
 export const createShift = async (shift: Partial<IShift>) => {
   try {
     const res = await fetch(`${URL_API}/shifts`, {
@@ -160,6 +187,25 @@ export const getShiftPaymentStatus = async (
   );
   if (res.status === 401) unauthorized();
   return res.json();
+};
+
+export const getClosedDates = async (): Promise<string[]> => {
+  try {
+    const res = await fetch(`${URL_API}/shifts/closed-dates`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${localStorage.getItem("token")}`,
+      },
+    });
+    if (res.status === 401) unauthorized();
+    const response: ResponseApi<string> = await res.json();
+    if (!res.ok && typeof response.data == "string")
+      throw new Error(response.data);
+    return (response.data as string[]) || [];
+  } catch (error) {
+    throw error;
+  }
 };
 
 export const getAvailableShifts = async (date: string) => {

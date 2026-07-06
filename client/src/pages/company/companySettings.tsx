@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { IConfig } from "../../interfaces/config";
 import { getConfigs, updateConfig } from "../../services/config";
+import WeeklyScheduleEditor from "./WeeklyScheduleEditor";
 import toast from "react-hot-toast";
 
 const notify = (msg: string) => toast.success(msg);
@@ -102,17 +103,8 @@ const CATEGORY_BY_CODE: Record<string, Category> = {
   scheduleDayFriday: "schedule",
   scheduleDaySaturday: "schedule",
   scheduleDaySunday: "schedule",
+  reservationMaxDays: "schedule",
   sessionExpiresIn: "system",
-};
-
-const DAY_LABELS: Record<string, string> = {
-  scheduleDayMonday: "Lunes",
-  scheduleDayTuesday: "Martes",
-  scheduleDayWednesday: "Miércoles",
-  scheduleDayThursday: "Jueves",
-  scheduleDayFriday: "Viernes",
-  scheduleDaySaturday: "Sábado",
-  scheduleDaySunday: "Domingo",
 };
 
 const getCategory = (code: string): Category =>
@@ -360,8 +352,11 @@ export function CompanySettings() {
     try {
       setLoading(true);
       const data = (await getConfigs()) as IConfig[];
-      // closedDates se administra en su propia sección "Días cerrados".
-      const visible = (data || []).filter((s) => s.code !== "closedDates");
+      // closedDates se administra en "Días cerrados" y los horarios semanales
+      // (scheduleDay*) en el editor estructurado de la sección Horarios.
+      const visible = (data || []).filter(
+        (s) => s.code !== "closedDates" && !s.code.startsWith("scheduleDay"),
+      );
       setSettings(visible);
       const initial: { [key: string]: string | number | object | boolean } = {};
       visible.forEach((s) => (initial[s.code] = s.value));
@@ -555,9 +550,9 @@ export function CompanySettings() {
           const items = grouped[cat];
           if (!items.length) return null;
 
-          // Schedule days: render in compact grid
+          // Schedule: otros configs (días laborables, duración) + editor de
+          // franjas horarias estructurado.
           if (cat === "schedule") {
-            const days = items.filter((s) => isScheduleDay(s.code));
             const others = items.filter((s) => !isScheduleDay(s.code));
             return (
               <section
@@ -586,38 +581,9 @@ export function CompanySettings() {
                       onChange={(v) => onChangeValue(s.code, v)}
                     />
                   ))}
-                  {days.length > 0 && (
-                    <div>
-                      <p className="text-sm font-medium text-gray-700 mb-2">
-                        Franjas horarias por día
-                      </p>
-                      <p className="text-xs text-gray-500 mb-3">
-                        Formato: HH:mm-HH:mm. Múltiples franjas separadas por
-                        coma. Ej:{" "}
-                        <code className="bg-gray-100 px-1 rounded">
-                          09:00-13:00, 18:00-23:00
-                        </code>
-                      </p>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-1">
-                        {days
-                          .sort((a, b) => {
-                            const order = Object.keys(DAY_LABELS);
-                            return (
-                              order.indexOf(a.code) - order.indexOf(b.code)
-                            );
-                          })
-                          .map((s) => (
-                            <FieldRow
-                              key={s.code}
-                              setting={s}
-                              value={editedValues[s.code] ?? s.value}
-                              onChange={(v) => onChangeValue(s.code, v)}
-                              customLabel={DAY_LABELS[s.code] || s.name}
-                            />
-                          ))}
-                      </div>
-                    </div>
-                  )}
+                  <div className="pt-2 border-t border-gray-100">
+                    <WeeklyScheduleEditor />
+                  </div>
                 </div>
               </section>
             );

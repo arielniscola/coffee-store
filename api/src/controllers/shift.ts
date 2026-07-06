@@ -6,13 +6,19 @@ import { shiftService } from "../services/shift";
 import configService from "../services/config";
 import { mercadoPagoService } from "../services/mercadopago";
 import { sendShiftConfirmationEmailOnce } from "../services/email";
+import {
+  scheduleExceptionService,
+  minutesToTime,
+} from "../services/scheduleException";
+import { weeklyScheduleService } from "../services/weeklySchedule";
+import { workshopService } from "../services/workshop";
 
 export class ShiftController {
   static find: IRouteController<
     {},
     {},
     {},
-    { date: string; unitBusiness?: string }
+    { date?: string; dateFrom?: string; dateTo?: string; unitBusiness?: string }
   > = async (req, res) => {
     const logger = new Log(res.locals.requestId, "ShiftController.find");
     try {
@@ -20,12 +26,31 @@ export class ShiftController {
       // Reconciliar pagos pendientes con MP, luego liberar vencidos
       await this.reconcilePendingPayments(companyCode);
       await shiftService.releaseExpiredPending(companyCode);
-      const startDate = moment(req.query.date, "YYYY-MM-DD")
-        .startOf("day")
-        .utc(true);
-      const endDate = moment(req.query.date, "YYYY-MM-DD")
-        .utc(true)
-        .endOf("day");
+
+      // Filtro de fecha: soporta un rango (dateFrom / dateTo, cualquiera
+      // opcional) o un día puntual (date, legacy del calendario). Si no se
+      // envía ninguno, se devuelven todos los turnos.
+      const { date, dateFrom, dateTo } = req.query;
+      let dateFilter: { $gte?: Date; $lte?: Date } | undefined;
+      if (dateFrom || dateTo) {
+        dateFilter = {};
+        if (dateFrom)
+          dateFilter.$gte = moment(dateFrom, "YYYY-MM-DD")
+            .startOf("day")
+            .utc(true)
+            .toDate();
+        if (dateTo)
+          dateFilter.$lte = moment(dateTo, "YYYY-MM-DD")
+            .utc(true)
+            .endOf("day")
+            .toDate();
+      } else if (date) {
+        dateFilter = {
+          $gte: moment(date, "YYYY-MM-DD").startOf("day").utc(true).toDate(),
+          $lte: moment(date, "YYYY-MM-DD").utc(true).endOf("day").toDate(),
+        };
+      }
+
       const filter = {
         ...{ companyCode: companyCode },
         // No mostrar reservas en pendingPayment como reservas reales
@@ -33,9 +58,7 @@ export class ShiftController {
         ...(req.query.unitBusiness
           ? { unitBusiness: req.query.unitBusiness }
           : {}),
-        ...(req.query.date
-          ? { date: { $gte: startDate.toDate(), $lte: endDate.toDate() } }
-          : {}),
+        ...(dateFilter ? { date: dateFilter } : {}),
       };
       const data: IShift[] = await shiftService.find(filter, {});
 
@@ -255,17 +278,30 @@ export class ShiftController {
     /** Obtenemos el dia en inglés para coincidir con configuración */
     let day = moment(date).locale("en").format("dddd");
     day = day.charAt(0).toUpperCase() + day.slice(1);
-    /** Obtenemos datos de inicio, duracion, final de dia */
-    const timeSchedule = (
-      await configService.findOne({ code: `scheduleDay${day}` })
-    ).value as string;
-    const durationConfig = (
-      await configService.findOne({
-        code: "durationShift",
-      })
-    ).value as string;
-    /** Validamos cuantos horarios contiene */
-    const scheduleSlot = timeSchedule.trim().split(",");
+    /** Duración del turno (por compañía) */
+    const durationConfig = await configService.findOne({
+      code: "durationShift",
+      companyCode,
+    });
+    const durationMin = parseInt((durationConfig?.value as string) || "0");
+    // Sin duración configurada no hay forma de generar slots.
+    if (!durationMin) return [];
+    /**
+     * Rangos del horario semanal estructurado (con fallback al config legacy),
+     * ajustados por las excepciones (abrir/cerrar).
+     */
+    const weeklyRanges = await weeklyScheduleService.getRangesForDay(
+      companyCode,
+      day
+    );
+    const exceptions = await scheduleExceptionService.findActiveForDate(
+      companyCode,
+      date
+    );
+    const effectiveRanges = scheduleExceptionService.computeEffectiveRanges(
+      weeklyRanges,
+      exceptions
+    );
 
     /** Capacidad diferenciada de adultos y niños según el modo configurado */
     const capacity = await shiftService.getCapacity(companyCode, unitBusiness);
@@ -276,21 +312,16 @@ export class ShiftController {
       initialTime: string;
     }[] = [];
     /** Algoritmo para obtener turnos restantes disponibles */
-    for (const slot of scheduleSlot) {
-      const timeSlotArray = slot.split("-");
-      let initialTime = this.parseTimeToMinutes(timeSlotArray[0]);
-      let endTime = this.parseTimeToMinutes(timeSlotArray[1]);
-      let countTime = 0;
-
-      countTime = initialTime;
-      while (endTime > countTime) {
+    for (const range of effectiveRanges) {
+      let countTime = range.start;
+      while (range.end > countTime) {
         reservationsAvailables.push({
           availables: capacity.adults + capacity.children,
           availablesAdults: capacity.adults,
           availablesChildren: capacity.children,
-          initialTime: this.parseMinutesToTime(countTime),
+          initialTime: minutesToTime(countTime),
         });
-        countTime += parseInt(durationConfig);
+        countTime += durationMin;
       }
     }
     for (const reserv of shifts) {
@@ -336,6 +367,9 @@ export class ShiftController {
           "El local está cerrado en la fecha seleccionada. Por favor elegí otra fecha."
         );
       }
+      // No permitir reservas más allá de la ventana de anticipación permitida.
+      const windowError = await this.getWindowError(companyCode, dateStr);
+      if (windowError) throw new Error(windowError);
 
       if (typeof shift.date === "string") {
         shift.date = moment(shift.date, "YYYY-MM-DD").utc(true).toDate();
@@ -353,7 +387,18 @@ export class ShiftController {
 
       const expiresAt = moment().add(15, "minutes").toDate();
       shift.paymentExpiresAt = expiresAt;
-      const totalPrice = Number(shift.price) || 0;
+      let totalPrice = Number(shift.price) || 0;
+
+      // Si la fecha tiene taller, el precio por niño lo define el taller:
+      // se recalcula acá para no depender del precio que manda el cliente.
+      const workshop = await workshopService.findActiveByDate(
+        companyCode,
+        dateStr
+      );
+      if (workshop) {
+        totalPrice = (shift.childrenQty || 0) * workshop.priceChild;
+        shift.price = totalPrice;
+      }
 
       // Idempotencia: si el mismo cliente ya tiene una reserva pendingPayment
       // viva para el mismo turno, reusarla en vez de duplicar.
@@ -396,7 +441,9 @@ export class ShiftController {
       const pref = await mercadoPagoService.createPreference({
         shiftId: String(created._id),
         companyCode,
-        title: `Reserva ${moment(shift.date).format("DD/MM/YYYY")} ${shift.timeStart}`,
+        title: workshop
+          ? `Taller "${workshop.title}" ${moment(shift.date).format("DD/MM/YYYY")} ${shift.timeStart}`
+          : `Reserva ${moment(shift.date).format("DD/MM/YYYY")} ${shift.timeStart}`,
         unitPrice: totalPrice,
         quantity: 1,
         payerEmail: shift.email,
@@ -571,21 +618,71 @@ export class ShiftController {
     date: string
   ): Promise<boolean> {
     try {
-      const raw = (await configService.getValue(
-        "closedDates",
-        companyCode
-      )) as string;
-      if (!raw) return false;
-      const closed = String(raw)
-        .split(",")
-        .map((d) => d.trim())
-        .filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d));
-      return closed.includes(date);
+      return await scheduleExceptionService.isDateClosed(companyCode, date);
     } catch (e) {
-      // Si el config no existe o falla, no bloquear las reservas.
+      // Si falla, no bloquear las reservas.
       return false;
     }
   }
+
+  /**
+   * Límite de anticipación (config `reservationMaxDays`): cantidad de días
+   * hacia adelante desde hoy en los que se puede reservar. 0 o ausente = sin
+   * límite. Devuelve 0 si no hay límite configurado.
+   */
+  private static async getReservationMaxDays(
+    companyCode: string
+  ): Promise<number> {
+    try {
+      const cfg = await configService.findOne({
+        code: "reservationMaxDays",
+        companyCode,
+      });
+      const n = parseInt(String(cfg?.value ?? "0"), 10);
+      return Number.isNaN(n) || n < 0 ? 0 : n;
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  /**
+   * Si la fecha (yyyy-MM-dd) excede la ventana de reservas permitida
+   * (hoy + `reservationMaxDays`), devuelve un mensaje de error para mostrar al
+   * cliente; si está dentro de la ventana (o no hay límite), devuelve null.
+   * La comparación es lexicográfica sobre yyyy-MM-dd.
+   */
+  private static async getWindowError(
+    companyCode: string,
+    date: string
+  ): Promise<string | null> {
+    const maxDays = await this.getReservationMaxDays(companyCode);
+    if (!maxDays) return null;
+    const todayStr = moment().format("YYYY-MM-DD");
+    const maxDateStr = moment(todayStr, "YYYY-MM-DD")
+      .add(maxDays, "days")
+      .format("YYYY-MM-DD");
+    if (date <= maxDateStr) return null;
+    return `Solo se puede reservar hasta el ${moment(
+      maxDateStr,
+      "YYYY-MM-DD"
+    ).format("DD/MM/YYYY")} (máximo ${maxDays} días de anticipación).`;
+  }
+
+  /**
+   * Endpoint público: lista de fechas (yyyy-MM-dd) totalmente cerradas, para
+   * deshabilitarlas en el selector de fechas del flujo de reserva.
+   */
+  static closedDates: IRouteController = async (req, res) => {
+    const logger = new Log(res.locals.requestId, "ShiftController.closedDates");
+    try {
+      const companyCode = res.locals.companyCode || "wichiwi";
+      const data = await scheduleExceptionService.getClosedDates(companyCode);
+      return res.status(200).json({ ack: 0, data });
+    } catch (e) {
+      logger.error(e);
+      return res.status(400).json({ ack: 1, message: e.message });
+    }
+  };
 
   private static parseTimeToMinutes(time: string): number {
     const timeSplit = time.split(":");

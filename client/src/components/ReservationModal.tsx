@@ -9,17 +9,24 @@ import {
   ChevronRight,
   Loader2,
   Info,
+  Palette,
 } from "lucide-react";
 import { useState, FormEvent, useEffect, useMemo } from "react";
-import { checkoutShift, getAvailableShifts } from "../services/shiftService";
+import {
+  checkoutShift,
+  getAvailableShifts,
+  getClosedDates,
+} from "../services/shiftService";
 import { IShift } from "../interfaces/shift";
 import toast from "react-hot-toast";
-import { format } from "date-fns";
+import { format, addDays } from "date-fns";
 import { getUnitBusiness } from "../services/unitBusinessService";
 import { IUnitBusiness } from "../interfaces/unitBusiness";
 import { getConfigs } from "../services/config";
 import { IConfig } from "../interfaces/config";
 import DatePickerWithClosed from "./DatePickerWithClosed";
+import { getUpcomingWorkshops } from "../services/workshopService";
+import { IWorkshop } from "../interfaces/workshop";
 
 const notifyError = (msg: string) => toast.error(msg);
 
@@ -109,6 +116,8 @@ export default function ReservationModal({
   const [availableSlots, setAvailableSlots] = useState<TimeSlot[]>([]);
   const [unitBusinessCode, setUnitBusinessCode] = useState<string>("");
   const [priceChild, setPriceChild] = useState<number>(0);
+  const [workshops, setWorkshops] = useState<IWorkshop[]>([]);
+  const [maxDays, setMaxDays] = useState<number>(0);
   const [closedDates, setClosedDates] = useState<string[]>([]);
   const [slotTakenWarning, setSlotTakenWarning] = useState<string>("");
   const [revalidating, setRevalidating] = useState(false);
@@ -134,21 +143,28 @@ export default function ReservationModal({
           configs?.find((c) => c.code === "priceChild")?.value || 0,
         );
         setPriceChild(c);
-        const closedRaw = String(
-          configs?.find((c) => c.code === "closedDates")?.value || "",
+        const md = Number(
+          configs?.find((c) => c.code === "reservationMaxDays")?.value || 0,
         );
-        setClosedDates(
-          closedRaw
-            .split(",")
-            .map((d) => d.trim())
-            .filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d)),
-        );
+        setMaxDays(Number.isNaN(md) || md < 0 ? 0 : md);
       } catch (e) {
         console.error("Error loading prices:", e);
       }
     };
+    const loadClosed = async () => {
+      try {
+        setClosedDates(await getClosedDates());
+      } catch (e) {
+        console.error("Error loading closed dates:", e);
+      }
+    };
+    const loadWorkshops = async () => {
+      setWorkshops(await getUpcomingWorkshops());
+    };
     loadUB();
     loadPrices();
+    loadClosed();
+    loadWorkshops();
   }, []);
 
   // Persistir el borrador para sobrevivir un redirect a Mercado Pago.
@@ -165,10 +181,18 @@ export default function ReservationModal({
     }
   }, [formData, step, pendingShiftId]);
 
+  // Si la fecha elegida tiene taller, el precio por niño lo define el taller.
+  const workshop = useMemo(
+    () =>
+      workshops.find((w) => String(w.date).split("T")[0] === formData.date),
+    [workshops, formData.date],
+  );
+  const effectivePriceChild = workshop ? workshop.priceChild : priceChild;
+
   // Solo los niños pagan la reserva; los adultos no abonan.
   const totalPrice = useMemo(
-    () => (formData.childrenQty || 0) * priceChild,
-    [formData.childrenQty, priceChild],
+    () => (formData.childrenQty || 0) * effectivePriceChild,
+    [formData.childrenQty, effectivePriceChild],
   );
 
   const peopleQty = useMemo(
@@ -212,7 +236,13 @@ export default function ReservationModal({
 
   const isDateClosed = closedDates.includes(formData.date);
 
-  const canGoStep2 = peopleQty > 0 && !!formData.date && !isDateClosed;
+  // Límite de anticipación (config reservationMaxDays). 0 = sin límite.
+  const maxDate =
+    maxDays > 0 ? format(addDays(new Date(), maxDays), "yyyy-MM-dd") : undefined;
+  const isDateBeyondMax = !!maxDate && formData.date > maxDate;
+
+  const canGoStep2 =
+    peopleQty > 0 && !!formData.date && !isDateClosed && !isDateBeyondMax;
   const canGoStep3 = !!formData.timeStart && !invalidOcupations;
 
   const handleSubmit = async (e: FormEvent) => {
@@ -367,6 +397,7 @@ export default function ReservationModal({
                   value={formData.date}
                   onChange={(d) => setFormData({ ...formData, date: d })}
                   closedDates={closedDates}
+                  maxDate={maxDate}
                 />
                 {isDateClosed && (
                   <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
@@ -378,6 +409,40 @@ export default function ReservationModal({
                       El local permanece cerrado ese día. Por favor elegí otra
                       fecha.
                     </p>
+                  </div>
+                )}
+                {isDateBeyondMax && !isDateClosed && (
+                  <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
+                    <AlertCircle
+                      size={18}
+                      className="text-red-600 mt-0.5 flex-shrink-0"
+                    />
+                    <p className="text-red-700 text-sm">
+                      Solo se puede reservar hasta el{" "}
+                      {maxDate ? maxDate.split("-").reverse().join("/") : ""}{" "}
+                      (máximo {maxDays} días de anticipación). Por favor elegí
+                      una fecha más cercana.
+                    </p>
+                  </div>
+                )}
+                {workshop && !isDateClosed && !isDateBeyondMax && (
+                  <div className="mt-2 p-3 bg-purple-50 border border-purple-200 rounded-lg flex items-start gap-2">
+                    <Palette
+                      size={18}
+                      className="text-purple-600 mt-0.5 flex-shrink-0"
+                    />
+                    <div className="text-sm text-purple-800">
+                      <p className="font-semibold">
+                        Ese día hay taller: {workshop.title}
+                      </p>
+                      {workshop.description && (
+                        <p className="mt-0.5">{workshop.description}</p>
+                      )}
+                      <p className="mt-0.5">
+                        La entrada por niño ese día es de $
+                        {workshop.priceChild.toFixed(2)}.
+                      </p>
+                    </div>
                   </div>
                 )}
               </div>
@@ -446,9 +511,11 @@ export default function ReservationModal({
                   <p className="text-2xl font-bold text-pink-600">
                     ${totalPrice.toFixed(2)}
                   </p>
-                  {priceChild > 0 && (
+                  {effectivePriceChild > 0 && (
                     <p className="text-xs text-gray-500 mt-1">
-                      Niño ${priceChild.toFixed(2)} · Adultos sin seña
+                      Niño ${effectivePriceChild.toFixed(2)}
+                      {workshop ? " (precio de taller)" : ""} · Adultos sin
+                      seña
                     </p>
                   )}
                 </div>
@@ -635,14 +702,23 @@ export default function ReservationModal({
                   <strong>Personas:</strong> {peopleQty} ({formData.adultsQty}{" "}
                   adultos, {formData.childrenQty} niños)
                 </p>
+                {workshop && (
+                  <p>
+                    <strong>Taller:</strong> {workshop.title}
+                  </p>
+                )}
                 {totalPrice > 0 && (
                   <div className="pt-2 mt-2 border-t border-blue-200">
-                    {priceChild > 0 && (formData.childrenQty || 0) > 0 && (
-                      <p className="text-xs text-gray-600">
-                        {formData.childrenQty} × ${priceChild.toFixed(2)} = $
-                        {((formData.childrenQty || 0) * priceChild).toFixed(2)}
-                      </p>
-                    )}
+                    {effectivePriceChild > 0 &&
+                      (formData.childrenQty || 0) > 0 && (
+                        <p className="text-xs text-gray-600">
+                          {formData.childrenQty} × $
+                          {effectivePriceChild.toFixed(2)} = $
+                          {(
+                            (formData.childrenQty || 0) * effectivePriceChild
+                          ).toFixed(2)}
+                        </p>
+                      )}
                     <p className="text-xs text-gray-600">Adultos sin seña</p>
                     <p className="font-bold text-base text-pink-600 mt-1">
                       Total: ${totalPrice.toFixed(2)}

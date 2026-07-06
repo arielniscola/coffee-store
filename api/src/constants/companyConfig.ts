@@ -65,7 +65,7 @@ export const DEFAULT_COMPANY_SETTINGS = [
     type: "company",
     dataType: "string",
     name: "Horarios dia Viernes",
-    value: "09:00",
+    value: "09:00-18:00",
     description: "Horarios para dia Viernes. Ej. 14:00-18:00, 20:00-23:00",
   },
   {
@@ -146,6 +146,15 @@ export const DEFAULT_COMPANY_SETTINGS = [
     value: "-",
     description:
       "Fechas en las que el local permanece cerrado y no se pueden realizar reservas. Formato yyyy-MM-dd separadas por coma.",
+  },
+  {
+    code: "reservationMaxDays",
+    type: "company",
+    dataType: "number",
+    name: "Días máximos de anticipación para reservar",
+    value: 0,
+    description:
+      "Cantidad máxima de días hacia adelante (desde hoy) en los que se puede reservar. Ej.: 30 permite reservar hasta 30 días después de hoy. 0 = sin límite.",
   },
   {
     code: "capacityMode",

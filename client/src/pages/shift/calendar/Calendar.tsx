@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import {
+  CalendarClock,
   Clock,
   DollarSign,
   Phone,
@@ -10,9 +11,8 @@ import {
 import type { IShift } from "../../../interfaces/shift";
 import { IUnitBusiness } from "../../../interfaces/unitBusiness";
 import { ITable } from "../../../interfaces/tables";
-import { IConfig } from "../../../interfaces/config";
-import { getConfigs } from "../../../services/config";
-import moment from "moment";
+import { getAvailableShifts } from "../../../services/shiftService";
+import ScheduleExceptionsModal from "./ScheduleExceptionsModal";
 import { format } from "date-fns";
 
 interface CalendarProps {
@@ -73,11 +73,12 @@ export default function Calendar({
   tables,
 }: CalendarProps) {
   const [timeSlots, setTimeSlots] = useState<string[]>([]);
+  const [showExceptionsModal, setShowExceptionsModal] = useState(false);
 
   useEffect(() => {
-    loadSettings();
+    loadTimeSlots();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedDate, tables]);
+  }, [selectedDate]);
 
   const totalCapacity = useMemo(
     () => tables.reduce((acc, t) => acc + (t.capacity || 0), 0),
@@ -113,12 +114,21 @@ export default function Calendar({
     };
   }, [shifts]);
 
-  async function loadSettings() {
+  // Los horarios disponibles los calcula el backend (única fuente de verdad):
+  // horario semanal + excepciones (abrir/cerrar) + fechas cerradas. Acá solo
+  // tomamos los horarios de inicio para armar la grilla del calendario.
+  async function loadTimeSlots() {
     try {
-      const data = (await getConfigs()) as IConfig[];
-      getTimeSlots(data);
+      const dateStr = format(selectedDate, "yyyy-MM-dd");
+      const slots = (await getAvailableShifts(dateStr)) as
+        | { initialTime: string }[]
+        | undefined;
+      setTimeSlots(
+        Array.isArray(slots) ? slots.map((s) => s.initialTime) : [],
+      );
     } catch (error) {
-      console.error("Error loading settings:", error);
+      console.error("Error loading time slots:", error);
+      setTimeSlots([]);
     }
   }
 
@@ -137,60 +147,6 @@ export default function Calendar({
     if (porcentaje >= 70) return "bg-orange-500";
     if (porcentaje >= 50) return "bg-yellow-500";
     return "bg-green-500";
-  };
-
-  const getTimeSlots = (data: IConfig[]) => {
-    let day = moment(selectedDate).locale("en").format("dddd");
-    day = day.charAt(0).toUpperCase() + day.slice(1);
-
-    const configCode = `scheduleDay${day}`;
-    const timeSchedule = data.find((conf) => conf.code === configCode)
-      ?.value as string;
-
-    if (!timeSchedule) {
-      setTimeSlots([]);
-      return;
-    }
-
-    const durationShiftValue = data.find(
-      (conf) => conf.code === "durationShift",
-    )?.value;
-    const durationShift = Number(durationShiftValue);
-
-    if (!durationShift) {
-      setTimeSlots([]);
-      return;
-    }
-
-    const slots: string[] = [];
-    const scheduleRanges = timeSchedule.trim().split(",");
-
-    for (const range of scheduleRanges) {
-      const parts = range.trim().split("-");
-      if (parts.length < 2) continue;
-
-      const [startTime, endTime] = parts;
-      const startParts = startTime.split(":");
-      const endParts = endTime.split(":");
-      if (startParts.length < 2 || endParts.length < 2) continue;
-
-      const [startH, startM] = startParts.map(Number);
-      const [endH, endM] = endParts.map(Number);
-
-      let currentMinutes = startH * 60 + (startM || 0);
-      const endMinutes = endH * 60 + (endM || 0);
-
-      while (currentMinutes < endMinutes) {
-        const h = Math.floor(currentMinutes / 60);
-        const m = currentMinutes % 60;
-        slots.push(
-          `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`,
-        );
-        currentMinutes += durationShift;
-      }
-    }
-
-    setTimeSlots(slots);
   };
 
   return (
@@ -223,7 +179,17 @@ export default function Calendar({
         </div>
       </div>
 
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowExceptionsModal(true);
+          }}
+          className="inline-flex items-center gap-2 bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-lg font-semibold hover:bg-gray-50 transition-all shadow-sm"
+        >
+          <CalendarClock className="w-4 h-4 text-pink-400" />
+          Horarios por rango
+        </button>
         <button
           onClick={(e) => {
             e.stopPropagation();
@@ -235,6 +201,12 @@ export default function Calendar({
           Agregar reserva
         </button>
       </div>
+
+      <ScheduleExceptionsModal
+        isOpen={showExceptionsModal}
+        onClose={() => setShowExceptionsModal(false)}
+        onChanged={loadTimeSlots}
+      />
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         {timeSlots.length === 0 ? (

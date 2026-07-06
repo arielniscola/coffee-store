@@ -40,12 +40,15 @@ interface DatePickerWithClosedProps {
   value: string; // yyyy-MM-dd
   onChange: (value: string) => void;
   closedDates: string[];
+  /** Última fecha reservable (yyyy-MM-dd). Fechas posteriores se deshabilitan. */
+  maxDate?: string;
 }
 
 export default function DatePickerWithClosed({
   value,
   onChange,
   closedDates,
+  maxDate,
 }: DatePickerWithClosedProps) {
   const [open, setOpen] = useState(false);
   const [viewMonth, setViewMonth] = useState<Date>(() =>
@@ -144,15 +147,22 @@ export default function DatePickerWithClosed({
               const selected = key === value;
               const past = isBefore(day, startOfToday());
               const closed = closedSet.has(key);
+              const beyondMax = !!maxDate && key > maxDate;
               const inMonth = isSameMonth(day, viewMonth);
               const isToday = isSameDay(day, startOfToday());
-              const disabled = past || closed;
+              const disabled = past || closed || beyondMax;
               return (
                 <button
                   key={key}
                   type="button"
                   disabled={disabled}
-                  title={closed ? "Cerrado" : undefined}
+                  title={
+                    closed
+                      ? "Cerrado"
+                      : beyondMax
+                        ? "Fuera del período de reservas"
+                        : undefined
+                  }
                   onClick={() => {
                     if (disabled) return;
                     onChange(key);
@@ -161,7 +171,7 @@ export default function DatePickerWithClosed({
                   className={`h-9 rounded-lg text-sm flex items-center justify-center transition-all ${
                     closed
                       ? "bg-red-50 text-red-400 line-through cursor-not-allowed"
-                      : past
+                      : past || beyondMax
                         ? "text-gray-300 cursor-not-allowed"
                         : selected
                           ? "bg-gradient-to-br from-pink-400 to-blue-400 text-white font-semibold shadow-sm"

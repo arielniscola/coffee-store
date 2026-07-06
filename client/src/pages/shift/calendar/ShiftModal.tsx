@@ -109,16 +109,46 @@ export default function ShiftModal({
   const adultsQty = formData.adultsQty || 0;
   const childrenQty = formData.childrenQty || 0;
 
+  // Lo que esta misma reserva ya ocupa en un horario. El backend ya lo descontó
+  // del disponible, así que al editar hay que sumarlo de vuelta para conocer el
+  // cupo real editable.
+  const ownForSlot = (sl: TimeSlot) => {
+    const sameSlot =
+      !!initialShift?._id &&
+      (initialShift?.date?.split("T")[0] || "") === formData.date &&
+      initialShift?.timeStart === sl.initialTime;
+    return {
+      adults: sameSlot ? initialShift?.adultsQty || 0 : 0,
+      children: sameSlot ? initialShift?.childrenQty || 0 : 0,
+    };
+  };
+
+  // Cupo real de un horario = disponible del backend + lo propio (al editar).
+  const slotRoom = (sl: TimeSlot) => {
+    const own = ownForSlot(sl);
+    return {
+      adults: (sl.availablesAdults ?? 0) + own.adults,
+      children: (sl.availablesChildren ?? 0) + own.children,
+    };
+  };
+
   // Un horario no alcanza si no quedan lugares de adultos o de niños suficientes.
-  const slotInsufficient = (s: TimeSlot) =>
-    adultsQty > (s.availablesAdults ?? 0) ||
-    childrenQty > (s.availablesChildren ?? 0);
+  const slotInsufficient = (s: TimeSlot) => {
+    const room = slotRoom(s);
+    return adultsQty > room.adults || childrenQty > room.children;
+  };
 
   const selectedSlot = availableSlots.find(
     (a) => a.initialTime === formData.timeStart,
   );
   const insufficient =
     !!formData.timeStart && !!selectedSlot && slotInsufficient(selectedSlot);
+
+  // Máximos de los inputs según el cupo del horario elegido. Si no hay horario
+  // seleccionado todavía, no se aplica tope (los horarios sin cupo se bloquean).
+  const room = selectedSlot ? slotRoom(selectedSlot) : undefined;
+  const maxAdults = room?.adults;
+  const maxChildren = room?.children;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -271,7 +301,7 @@ export default function ShiftModal({
                   <input
                     type="number"
                     min="1"
-                    max="20"
+                    max={maxAdults}
                     required
                     value={formData.adultsQty}
                     onChange={(e) =>
@@ -296,7 +326,7 @@ export default function ShiftModal({
                   <input
                     type="number"
                     min="0"
-                    max="20"
+                    max={maxChildren}
                     value={formData.childrenQty}
                     onChange={(e) =>
                       setFormData({
@@ -479,8 +509,8 @@ export default function ShiftModal({
               />
               <div className="text-sm">
                 <p className="font-bold text-orange-700">
-                  Quedan {selectedSlot?.availablesAdults ?? 0} adultos y{" "}
-                  {selectedSlot?.availablesChildren ?? 0} niños
+                  Quedan {room?.adults ?? 0} adultos y {room?.children ?? 0}{" "}
+                  niños
                 </p>
                 <p className="text-orange-700 text-xs mt-1">
                   El horario seleccionado no tiene cupo para la cantidad de

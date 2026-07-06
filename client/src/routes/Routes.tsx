@@ -12,6 +12,7 @@ import LandingPage from "../pages/landingPage/LandingPage";
 import Tables from "../pages/tables";
 import CompanyConfig from "../pages/company";
 import ClosedDates from "../pages/closedDates/ClosedDates";
+import Workshops from "../pages/workshops/Workshops";
 import PaymentResult from "../pages/PaymentResult";
 import MpPayments from "../pages/payments/MpPayments";
 
@@ -80,6 +81,14 @@ export const router = createBrowserRouter([
         element: (
           <ProtectedRoute>
             <ClosedDates />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/settings/workshops",
+        element: (
+          <ProtectedRoute>
+            <Workshops />
           </ProtectedRoute>
         ),
       },

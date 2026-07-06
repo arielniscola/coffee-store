@@ -2,6 +2,7 @@ import Log from "../libs/logger";
 import { IRouteController } from "../routes/index";
 import { IConfig } from "../models/config";
 import configService from "../services/config";
+import { validateScheduleString } from "../services/scheduleException";
 
 export class ConfigController {
   static find: IRouteController<{}, {}, {}, {}> = async (req, res) => {
@@ -22,6 +23,11 @@ export class ConfigController {
     const logger = new Log(res.locals.requestId, "ConfigController.update");
     try {
       const configUpdate: IConfig = req.body;
+      /** Validar formato de los horarios semanales antes de guardar */
+      if (configUpdate.code?.startsWith("scheduleDay")) {
+        const scheduleError = validateScheduleString(configUpdate.value);
+        if (scheduleError) throw new Error(scheduleError);
+      }
       /** Verificar si existe */
       const exist = await configService.findOne({
         code: configUpdate.code,
