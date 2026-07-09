@@ -22,9 +22,6 @@ import { ICompany } from "../../interfaces/company";
 import { getCompany } from "../../services/company";
 import { getConfigs } from "../../services/config";
 import { getWeeklySchedule } from "../../services/weeklyScheduleService";
-import { getPublicScheduleExceptions } from "../../services/scheduleExceptionService";
-import { IScheduleException } from "../../interfaces/scheduleException";
-import { formatDateRange } from "../../utils/dates";
 import { IConfig } from "../../interfaces/config";
 import {
   IWeeklySchedule,
@@ -35,6 +32,7 @@ import {
 import { getUpcomingWorkshops } from "../../services/workshopService";
 import { IWorkshop } from "../../interfaces/workshop";
 import WorkshopGallery from "../../components/WorkshopGallery";
+import { parseScheduleText } from "../../utils/scheduleText";
 
 // Franjas de un día -> "09:00 - 18:00 · 20:00 - 23:00". Vacío -> "Cerrado".
 function formatRanges(ranges: ITimeRange[]): string {
@@ -72,22 +70,18 @@ function LandingPage() {
   const [company, setCompany] = useState<ICompany | undefined>();
   const [priceChild, setPriceChild] = useState<number>(0);
   const [scheduleGroups, setScheduleGroups] = useState<ScheduleGroup[]>([]);
+  const [scheduleText, setScheduleText] = useState<string>("");
+  const [scheduleSubtitle, setScheduleSubtitle] = useState<string>("");
   const [workshops, setWorkshops] = useState<IWorkshop[]>([]);
-  const [specialDates, setSpecialDates] = useState<IScheduleException[]>([]);
 
   useEffect(() => {
     loadProfile();
     loadPrices();
     loadWorkshops();
-    loadSpecialDates();
   }, []);
 
   async function loadWorkshops() {
     setWorkshops(await getUpcomingWorkshops());
-  }
-
-  async function loadSpecialDates() {
-    setSpecialDates(await getPublicScheduleExceptions());
   }
 
   async function loadProfile() {
@@ -108,6 +102,15 @@ function LandingPage() {
         configs?.find((c) => c.code === "priceChild")?.value || 0,
       );
       setPriceChild(c);
+      // Texto libre de horarios (informativo). "-" es el valor por defecto/vacío.
+      const st = String(
+        configs?.find((c) => c.code === "scheduleText")?.value || "",
+      ).trim();
+      setScheduleText(st === "-" ? "" : st);
+      const subtitle = String(
+        configs?.find((c) => c.code === "scheduleSubtitle")?.value || "",
+      ).trim();
+      setScheduleSubtitle(subtitle === "-" ? "" : subtitle);
       const schedule = await getWeeklySchedule();
       setScheduleGroups(
         buildScheduleGroups(schedule || emptyWeeklySchedule()),
@@ -121,9 +124,11 @@ function LandingPage() {
     ? `https://wa.me/${company.cellphone.replace(/\D/g, "")}`
     : undefined;
 
-  // Fechas especiales = aperturas con horarios especiales en un rango de fechas.
-  // Los días cerrados no se listan: ya se ven bloqueados en el calendario.
-  const hasSpecialDates = specialDates.length > 0;
+  // Horarios a mostrar: si hay texto libre se parsea a cards por día; si no,
+  // se usa el horario configurado en el editor semanal.
+  const scheduleDisplay = scheduleText
+    ? parseScheduleText(scheduleText)
+    : scheduleGroups;
 
   return (
     <div className="min-h-screen bg-blue-50">
@@ -269,10 +274,15 @@ function LandingPage() {
                 Horarios
               </h2>
               <div className="w-24 h-1 bg-gradient-to-r from-pink-300 to-blue-300 mx-auto mb-8"></div>
+              {scheduleSubtitle && (
+                <p className="text-lg md:text-xl font-semibold text-blue-400 -mt-4 mb-2">
+                  {scheduleSubtitle}
+                </p>
+              )}
             </div>
-            {scheduleGroups.length > 0 && (
+            {scheduleDisplay.length > 0 && (
               <div className="max-w-2xl mx-auto grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {scheduleGroups.map((group, index) => {
+                {scheduleDisplay.map((group, index) => {
                   const even = index % 2 === 0;
                   return (
                     <div
@@ -290,7 +300,9 @@ function LandingPage() {
                         <p className="font-semibold text-gray-800">
                           {group.label}
                         </p>
-                        <p className="text-gray-600">{group.hours}</p>
+                        {group.hours && (
+                          <p className="text-gray-600">{group.hours}</p>
+                        )}
                       </div>
                     </div>
                   );
@@ -298,40 +310,6 @@ function LandingPage() {
               </div>
             )}
 
-            {hasSpecialDates && (
-              <div className="max-w-2xl mx-auto mt-10">
-                <div className="flex items-center justify-center gap-2 mb-5">
-                  <Clock className="w-5 h-5 text-pink-400" />
-                  <h3 className="text-xl font-bold text-gray-800">
-                    Fechas especiales
-                  </h3>
-                </div>
-
-                {specialDates.length > 0 && (
-                  <div className="bg-green-50 border border-green-100 rounded-xl p-5">
-                    <p className="text-sm font-semibold text-green-700 mb-3 flex items-center gap-1.5">
-                      <Clock className="w-4 h-4" />
-                      Aperturas con horarios especiales
-                    </p>
-                    <ul className="space-y-1.5">
-                      {specialDates.map((e) => (
-                        <li
-                          key={e._id}
-                          className="text-sm text-green-800 flex flex-wrap items-baseline gap-x-2"
-                        >
-                          <span className="font-medium">
-                            {formatDateRange(e.dateFrom, e.dateTo)}
-                          </span>
-                          <span className="text-green-600 font-semibold">
-                            {e.timeStart} - {e.timeEnd} hs
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
-            )}
           </div>
         </section>
 
@@ -484,7 +462,8 @@ function LandingPage() {
         priceChild={priceChild}
         workshopPrices={workshops.map((w) => w.priceChild)}
         scheduleGroups={scheduleGroups}
-        specialDates={specialDates}
+        scheduleText={scheduleText}
+        scheduleSubtitle={scheduleSubtitle}
       />
 
       <ReservationModal

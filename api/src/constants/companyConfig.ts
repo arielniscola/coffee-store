@@ -20,13 +20,22 @@ export const DEFAULT_COMPANY_SETTINGS = [
     description: "Tiempo de duracion de los turnos expresado en minutos",
   },
   {
-    code: "daysWeek",
+    code: "scheduleText",
     type: "company",
     dataType: "string",
-    name: "Dias de la semana laborables",
-    value: "Lunes, Martes, Miercoles, Jueves, Viernes",
+    name: "Horarios de atención (texto)",
+    value: "-",
     description:
-      "Dias de la semana aplicables a turnos, se expresa nombre del dia seguido de coma",
+      "Horarios de atención que se muestran en la landing y en el modal de reserva (solo informativo). Una entrada por línea con formato «Días: horario» (ej.: Martes a Viernes: 17:00 - 21:00), y cada línea se muestra como una card por día. Si se deja vacío, se usan los horarios del editor semanal.",
+  },
+  {
+    code: "scheduleSubtitle",
+    type: "company",
+    dataType: "string",
+    name: "Horarios de atención (subtítulo)",
+    value: "-",
+    description:
+      "Subtítulo opcional que se muestra sobre las cards de horarios en la landing y el modal (ej.: «Horario especial de Invierno»). Si se deja vacío, no se muestra.",
   },
   {
     code: "scheduleDayMonday",

@@ -52,7 +52,17 @@ function CompanyConfig() {
               <div className="p-6">
                 {currentView === "profile" && <CompanyProfile />}
 
-                {currentView === "settings" && <CompanySettings />}
+                {currentView === "settings" && (
+                  <CompanySettings
+                    categories={[
+                      "payments",
+                      "capacity",
+                      "public",
+                      "email",
+                      "system",
+                    ]}
+                  />
+                )}
               </div>
             </div>
           </div>

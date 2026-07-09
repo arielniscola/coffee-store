@@ -24,7 +24,7 @@ import toast from "react-hot-toast";
 const notify = (msg: string) => toast.success(msg);
 const notifyError = (msg: string) => toast.error(msg);
 
-type Category =
+export type Category =
   | "payments"
   | "capacity"
   | "schedule"
@@ -54,7 +54,7 @@ const CATEGORIES: Record<Category, CategoryMeta> = {
   },
   schedule: {
     label: "Horarios",
-    description: "Días laborables, duración del turno y franjas horarias",
+    description: "Duración del turno, franjas horarias y textos de horarios",
     icon: <Clock className="w-5 h-5" />,
     gradient: "from-pink-300 to-blue-300",
   },
@@ -95,7 +95,8 @@ const CATEGORY_BY_CODE: Record<string, Category> = {
   smtpPass: "email",
   emailFrom: "email",
   durationShift: "schedule",
-  daysWeek: "schedule",
+  scheduleText: "schedule",
+  scheduleSubtitle: "schedule",
   scheduleDayMonday: "schedule",
   scheduleDayTuesday: "schedule",
   scheduleDayWednesday: "schedule",
@@ -203,6 +204,30 @@ const FieldRow = ({
             }`}
           />
         </button>
+      </div>
+    );
+  }
+
+  if (setting.code === "scheduleText") {
+    return (
+      <div className="py-3">
+        {!hideName && (
+          <label className="block text-sm font-medium text-gray-800">
+            {label}
+          </label>
+        )}
+        {setting.description && (
+          <p className="text-xs text-gray-500 mt-0.5 mb-2">
+            {setting.description}
+          </p>
+        )}
+        <textarea
+          value={String(value ?? "")}
+          onChange={(e) => onChange(e.target.value)}
+          rows={4}
+          placeholder={"Martes a Viernes: 17:00 - 21:00\nSábados y Domingos: 15:00 - 20:00"}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-300 focus:border-pink-300 resize-y"
+        />
       </div>
     );
   }
@@ -331,7 +356,18 @@ const FieldRow = ({
   );
 };
 
-export function CompanySettings() {
+interface CompanySettingsProps {
+  /** Si se indica, solo se muestran/guardan configs de estas categorías. */
+  categories?: Category[];
+  title?: string;
+  subtitle?: string;
+}
+
+export function CompanySettings({
+  categories,
+  title = "Configuración del Sistema",
+  subtitle = "Parámetros de la compañía agrupados por categoría",
+}: CompanySettingsProps = {}) {
   const [settings, setSettings] = useState<IConfig[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -355,11 +391,18 @@ export function CompanySettings() {
       // closedDates se administra en "Días cerrados" y los horarios semanales
       // (scheduleDay*) en el editor estructurado de la sección Horarios.
       const visible = (data || []).filter(
-        (s) => s.code !== "closedDates" && !s.code.startsWith("scheduleDay"),
+        (s) =>
+          s.code !== "closedDates" &&
+          s.code !== "daysWeek" &&
+          !s.code.startsWith("scheduleDay"),
       );
-      setSettings(visible);
+      // Si la página está scopeada, solo conservamos las categorías indicadas.
+      const scoped = categories
+        ? visible.filter((s) => categories.includes(getCategory(s.code)))
+        : visible;
+      setSettings(scoped);
       const initial: { [key: string]: string | number | object | boolean } = {};
-      visible.forEach((s) => (initial[s.code] = s.value));
+      scoped.forEach((s) => (initial[s.code] = s.value));
       setEditedValues(initial);
     } catch (e) {
       console.error("Error loading settings:", e);
@@ -454,6 +497,13 @@ export function CompanySettings() {
     activeCategory === "all" ? grouped[c].length > 0 : c === activeCategory,
   );
 
+  // Categorías disponibles en esta vista (todas o el subconjunto scopeado).
+  const availableCategories = (Object.keys(CATEGORIES) as Category[]).filter(
+    (c) => !categories || categories.includes(c),
+  );
+  // Con una sola categoría no tiene sentido mostrar buscador ni tabs.
+  const showFilters = availableCategories.length > 1;
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -476,15 +526,12 @@ export function CompanySettings() {
           <Settings className="w-5 h-5" />
         </div>
         <div>
-          <h2 className="text-2xl font-bold text-gray-800">
-            Configuración del Sistema
-          </h2>
-          <p className="text-sm text-gray-500">
-            Parámetros de la compañía agrupados por categoría
-          </p>
+          <h2 className="text-2xl font-bold text-gray-800">{title}</h2>
+          <p className="text-sm text-gray-500">{subtitle}</p>
         </div>
       </div>
 
+      {showFilters && (
       <div className="bg-white rounded-xl border border-gray-200 p-4 mb-5 space-y-3">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -507,7 +554,7 @@ export function CompanySettings() {
           >
             Todas
           </button>
-          {(Object.keys(CATEGORIES) as Category[]).map((cat) => (
+          {availableCategories.map((cat) => (
             <button
               key={cat}
               onClick={() => setActiveCategory(cat)}
@@ -530,6 +577,7 @@ export function CompanySettings() {
           ))}
         </div>
       </div>
+      )}
 
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex gap-3 mb-5">
@@ -550,7 +598,7 @@ export function CompanySettings() {
           const items = grouped[cat];
           if (!items.length) return null;
 
-          // Schedule: otros configs (días laborables, duración) + editor de
+          // Schedule: otros configs (duración, textos) + editor de
           // franjas horarias estructurado.
           if (cat === "schedule") {
             const others = items.filter((s) => !isScheduleDay(s.code));

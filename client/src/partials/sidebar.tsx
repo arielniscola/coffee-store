@@ -14,6 +14,7 @@ import {
   Coffee,
   Building2,
   CalendarOff,
+  Clock,
   Palette,
   LogOut,
   User as UserIcon,
@@ -281,6 +282,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
                               <Building2 className="w-4 h-4 shrink-0" />
                               <span className="text-sm font-medium ml-2 truncate">
                                 Empresa
+                              </span>
+                            </NavLink>
+                          </li>
+                          <li>
+                            <NavLink
+                              end
+                              to="/settings/schedule"
+                              className={({ isActive: a }) =>
+                                subLinkClasses(a)
+                              }
+                            >
+                              <Clock className="w-4 h-4 shrink-0" />
+                              <span className="text-sm font-medium ml-2 truncate">
+                                Horarios
                               </span>
                             </NavLink>
                           </li>

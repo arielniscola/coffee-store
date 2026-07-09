@@ -1,6 +1,5 @@
 import { Clock, Phone, AlertCircle, Check } from "lucide-react";
-import { IScheduleException } from "../interfaces/scheduleException";
-import { formatDateRange } from "../utils/dates";
+import { parseScheduleText } from "../utils/scheduleText";
 
 interface informationModalProps {
   isOpen: boolean;
@@ -11,8 +10,10 @@ interface informationModalProps {
   workshopPrices?: number[];
   /** Horario semanal ya agrupado ("Martes a Viernes" -> "17:00 - 21:00"). */
   scheduleGroups?: { label: string; hours: string }[];
-  /** Aperturas con horarios especiales (excepciones "open"). */
-  specialDates?: IScheduleException[];
+  /** Texto libre de horarios; si está presente reemplaza a scheduleGroups. */
+  scheduleText?: string;
+  /** Subtítulo opcional sobre los horarios (ej. "Horario especial de Invierno"). */
+  scheduleSubtitle?: string;
 }
 
 const formatPrice = (n: number) =>
@@ -25,14 +26,16 @@ export default function InformationModal({
   priceChild = 0,
   workshopPrices = [],
   scheduleGroups = [],
-  specialDates = [],
+  scheduleText = "",
+  scheduleSubtitle = "",
 }: informationModalProps) {
   if (!isOpen) return null;
 
-  // Los días cerrados no se listan (ya se ven bloqueados en el calendario);
-  // acá solo mostramos las aperturas con horarios especiales.
-  const specialPreview = specialDates.slice(0, 4);
-  const hasSpecialDates = specialPreview.length > 0;
+  // Si hay texto libre de horarios, se parsea a { label, hours }; si no, se
+  // usan los grupos del horario configurado.
+  const scheduleDisplay = scheduleText
+    ? parseScheduleText(scheduleText)
+    : scheduleGroups;
 
   // Los talleres pueden tener distinto precio: mostramos el valor único o un
   // rango. Si no hay talleres próximos, no se menciona el precio de taller.
@@ -72,11 +75,17 @@ export default function InformationModal({
               <h3 className="font-semibold text-blue-900 mb-1">
                 Horarios de Atención
               </h3>
-              {scheduleGroups.length > 0 ? (
+              {scheduleSubtitle && (
+                <p className="text-sm font-semibold text-blue-700 mb-1">
+                  {scheduleSubtitle}
+                </p>
+              )}
+              {scheduleDisplay.length > 0 ? (
                 <ul className="text-sm text-blue-800 space-y-1">
-                  {scheduleGroups.map((g, i) => (
+                  {scheduleDisplay.map((g, i) => (
                     <li key={`${g.label}-${i}`}>
-                      • {g.label}: {g.hours}
+                      • {g.label}
+                      {g.hours ? `: ${g.hours}` : ""}
                     </li>
                   ))}
                 </ul>
@@ -87,35 +96,6 @@ export default function InformationModal({
               )}
             </div>
           </div>
-
-          {hasSpecialDates && (
-            <div className="flex items-start gap-3 p-4 bg-pink-50 rounded-lg">
-              <Clock
-                size={20}
-                className="text-pink-600 mt-0.5 flex-shrink-0"
-              />
-              <div className="min-w-0">
-                <h3 className="font-semibold text-pink-900 mb-1">
-                  Fechas especiales
-                </h3>
-                {specialPreview.length > 0 && (
-                  <div className="text-sm text-pink-800 mt-1">
-                    <span className="font-medium">
-                      Aperturas con horarios especiales:
-                    </span>
-                    <ul className="mt-0.5 space-y-0.5">
-                      {specialPreview.map((e) => (
-                        <li key={e._id}>
-                          • {formatDateRange(e.dateFrom, e.dateTo)}:{" "}
-                          {e.timeStart} - {e.timeEnd} hs
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
 
           <div className="flex items-start gap-3 p-4 bg-purple-50 rounded-lg">
             <AlertCircle
@@ -143,11 +123,19 @@ export default function InformationModal({
                   <ul>
                     <li>
                       {" "}
-                      - Jugo pura fruta, chocolatada, leche, agua o yogurt con o
-                      sin azúcar + tortita, muffin, budín, panqueque de banana
-                      sin azúcar o cereales con o sin azúcar. Tortita{" "}
+                      - Jugo Pura Fruta, Chocolatada, Agua, Leche o Yogurt +
+                      Tortita, Muffin, Budín, Cereales con o sin azúcar,
+                      Panqueque de banana sin azúcar.
                     </li>
                   </ul>
+                </li>
+                <li>
+                  • Se recomienda ingresar y pedir a la carta lo que consuman
+                  para evitar retrasos.
+                </li>
+                <li>• No se permite entrar con comida, bebida o el mate.</li>
+                <li>
+                  • Le pedimos a los mayores el uso responsable de los juguetes.
                 </li>
               </ul>
             </div>
