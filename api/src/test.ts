@@ -12,7 +12,9 @@ const CONFIGS = defineOptions({
     secret: "secret",
   },
   db: {
-    uri: process.env.MONGO_URI || "mongodb://127.0.0.1:27017/coffeshop",
+    uri:
+      process.env.MONGO_URI ||
+      "mongodb+srv://fernandoniscola_db_user:Z2lobEfYnbQowmJB@cluster0.zx8mhsj.mongodb.net/?appName=Cluster0",
   },
   logs: {
     path: process.env.LOGS_PATH || "logs",
