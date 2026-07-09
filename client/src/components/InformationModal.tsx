@@ -1,5 +1,5 @@
 import { Clock, Phone, AlertCircle, Check } from "lucide-react";
-import { parseScheduleText } from "../utils/scheduleText";
+import { parseScheduleText, ScheduleTextGroup } from "../utils/scheduleText";
 
 interface informationModalProps {
   isOpen: boolean;
@@ -31,11 +31,14 @@ export default function InformationModal({
 }: informationModalProps) {
   if (!isOpen) return null;
 
-  // Si hay texto libre de horarios, se parsea a { label, hours }; si no, se
-  // usan los grupos del horario configurado.
-  const scheduleDisplay = scheduleText
+  // Si hay texto libre de horarios, se parsea a cards { label, hours[] }; si
+  // no, se usan los grupos del horario configurado (mismo shape).
+  const scheduleDisplay: ScheduleTextGroup[] = scheduleText
     ? parseScheduleText(scheduleText)
-    : scheduleGroups;
+    : scheduleGroups.map((g) => ({
+        label: g.label,
+        hours: g.hours ? [g.hours] : [],
+      }));
 
   // Los talleres pueden tener distinto precio: mostramos el valor único o un
   // rango. Si no hay talleres próximos, no se menciona el precio de taller.
@@ -84,8 +87,10 @@ export default function InformationModal({
                 <ul className="text-sm text-blue-800 space-y-1">
                   {scheduleDisplay.map((g, i) => (
                     <li key={`${g.label}-${i}`}>
-                      • {g.label}
-                      {g.hours ? `: ${g.hours}` : ""}
+                      •{" "}
+                      {[g.label, g.hours.join(" · ")]
+                        .filter(Boolean)
+                        .join(": ")}
                     </li>
                   ))}
                 </ul>

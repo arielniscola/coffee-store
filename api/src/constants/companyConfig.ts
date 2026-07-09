@@ -26,7 +26,7 @@ export const DEFAULT_COMPANY_SETTINGS = [
     name: "Horarios de atención (texto)",
     value: "-",
     description:
-      "Horarios de atención que se muestran en la landing y en el modal de reserva (solo informativo). Una entrada por línea con formato «Días: horario» (ej.: Martes a Viernes: 17:00 - 21:00), y cada línea se muestra como una card por día. Si se deja vacío, se usan los horarios del editor semanal.",
+      "Horarios de atención que se muestran en la landing y en el modal de reserva (solo informativo). Una línea que empieza con un día de la semana (ej.: «Lunes a domingo») abre una card, y las líneas siguientes son sus franjas horarias (ej.: «10 a 12», «18:15 a 20:15»), una por línea. Si se deja vacío, se usan los horarios del editor semanal.",
   },
   {
     code: "scheduleSubtitle",

@@ -224,8 +224,10 @@ const FieldRow = ({
         <textarea
           value={String(value ?? "")}
           onChange={(e) => onChange(e.target.value)}
-          rows={4}
-          placeholder={"Martes a Viernes: 17:00 - 21:00\nSábados y Domingos: 15:00 - 20:00"}
+          rows={6}
+          placeholder={
+            "Lunes a domingo\n10 a 12\n13 a 15\n16 a 18\n18:15 a 20:15"
+          }
           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-300 focus:border-pink-300 resize-y"
         />
       </div>

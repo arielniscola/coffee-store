@@ -32,7 +32,10 @@ import {
 import { getUpcomingWorkshops } from "../../services/workshopService";
 import { IWorkshop } from "../../interfaces/workshop";
 import WorkshopGallery from "../../components/WorkshopGallery";
-import { parseScheduleText } from "../../utils/scheduleText";
+import {
+  parseScheduleText,
+  ScheduleTextGroup,
+} from "../../utils/scheduleText";
 
 // Franjas de un día -> "09:00 - 18:00 · 20:00 - 23:00". Vacío -> "Cerrado".
 function formatRanges(ranges: ITimeRange[]): string {
@@ -125,10 +128,13 @@ function LandingPage() {
     : undefined;
 
   // Horarios a mostrar: si hay texto libre se parsea a cards por día; si no,
-  // se usa el horario configurado en el editor semanal.
-  const scheduleDisplay = scheduleText
+  // se usa el horario configurado en el editor semanal (mismo shape).
+  const scheduleDisplay: ScheduleTextGroup[] = scheduleText
     ? parseScheduleText(scheduleText)
-    : scheduleGroups;
+    : scheduleGroups.map((g) => ({
+        label: g.label,
+        hours: g.hours ? [g.hours] : [],
+      }));
 
   return (
     <div className="min-h-screen bg-blue-50">
@@ -289,19 +295,32 @@ function LandingPage() {
                       key={`${group.label}-${index}`}
                       className={`bg-gradient-to-br ${
                         even ? "from-pink-50" : "from-blue-50"
-                      } to-white rounded-xl p-6 shadow-md flex items-center gap-4`}
+                      } to-white rounded-xl p-6 shadow-md flex items-start gap-4`}
                     >
                       <Clock
                         className={`w-8 h-8 flex-shrink-0 ${
                           even ? "text-pink-400" : "text-blue-400"
                         }`}
                       />
-                      <div>
-                        <p className="font-semibold text-gray-800">
-                          {group.label}
-                        </p>
-                        {group.hours && (
-                          <p className="text-gray-600">{group.hours}</p>
+                      <div className="min-w-0">
+                        {group.label && (
+                          <p className="font-semibold text-gray-800 mb-2">
+                            {group.label}
+                          </p>
+                        )}
+                        {group.hours.length > 0 && (
+                          <div className="flex flex-wrap gap-2">
+                            {group.hours.map((h, i) => (
+                              <span
+                                key={`${h}-${i}`}
+                                className={`inline-flex items-center rounded-full bg-white px-3 py-1 text-sm font-medium text-gray-700 border ${
+                                  even ? "border-pink-200" : "border-blue-200"
+                                } shadow-sm`}
+                              >
+                                {h}
+                              </span>
+                            ))}
+                          </div>
                         )}
                       </div>
                     </div>
