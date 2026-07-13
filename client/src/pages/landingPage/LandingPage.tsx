@@ -29,8 +29,6 @@ import {
   WEEKDAYS,
   emptyWeeklySchedule,
 } from "../../interfaces/weeklySchedule";
-import { getUpcomingWorkshops } from "../../services/workshopService";
-import { IWorkshop } from "../../interfaces/workshop";
 import WorkshopGallery from "../../components/WorkshopGallery";
 import {
   parseScheduleText,
@@ -75,17 +73,12 @@ function LandingPage() {
   const [scheduleGroups, setScheduleGroups] = useState<ScheduleGroup[]>([]);
   const [scheduleText, setScheduleText] = useState<string>("");
   const [scheduleSubtitle, setScheduleSubtitle] = useState<string>("");
-  const [workshops, setWorkshops] = useState<IWorkshop[]>([]);
+  const [policiesText, setPoliciesText] = useState<string>("");
 
   useEffect(() => {
     loadProfile();
     loadPrices();
-    loadWorkshops();
   }, []);
-
-  async function loadWorkshops() {
-    setWorkshops(await getUpcomingWorkshops());
-  }
 
   async function loadProfile() {
     try {
@@ -114,6 +107,11 @@ function LandingPage() {
         configs?.find((c) => c.code === "scheduleSubtitle")?.value || "",
       ).trim();
       setScheduleSubtitle(subtitle === "-" ? "" : subtitle);
+      // Políticas de reserva (texto libre). "-" es el valor por defecto/vacío.
+      const policies = String(
+        configs?.find((c) => c.code === "policiesText")?.value || "",
+      ).trim();
+      setPoliciesText(policies === "-" ? "" : policies);
       const schedule = await getWeeklySchedule();
       setScheduleGroups(
         buildScheduleGroups(schedule || emptyWeeklySchedule()),
@@ -478,11 +476,10 @@ function LandingPage() {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         setFormOpen={setIsFormOpen}
-        priceChild={priceChild}
-        workshopPrices={workshops.map((w) => w.priceChild)}
         scheduleGroups={scheduleGroups}
         scheduleText={scheduleText}
         scheduleSubtitle={scheduleSubtitle}
+        policiesText={policiesText}
       />
 
       <ReservationModal

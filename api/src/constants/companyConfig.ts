@@ -29,6 +29,21 @@ export const DEFAULT_COMPANY_SETTINGS = [
       "Horarios de atención que se muestran en la landing y en el modal de reserva (solo informativo). Una línea que empieza con un día de la semana (ej.: «Lunes a domingo») abre una card, y las líneas siguientes son sus franjas horarias (ej.: «10 a 12», «18:15 a 20:15»), una por línea. Si se deja vacío, se usan los horarios del editor semanal.",
   },
   {
+    code: "policiesText",
+    type: "company",
+    dataType: "string",
+    name: "Políticas de reserva (texto)",
+    value:
+      "Wichi Wi es una cafetería con juegos para niños de 0 a 6 años (juegos de roles y un gran pelotero).\n" +
+      "Para el disfrute del espacio de manera cómoda y segura, trabajamos con turnos, los cuales tienen una duración de 2 horas (ingresos y salidas puntuales).\n" +
+      "Cada niño abona un monto de $10.000. Esta entrada incluye: Jugo Pura Fruta, Chocolatada, Agua, Leche o Yogurt + Tortita, Muffin, Budín, Cereales con o sin azúcar, Panqueque de banana sin azúcar.\n" +
+      "Se recomienda ingresar y pedir a la carta lo que consuman para evitar retrasos.\n" +
+      "No se permite entrar con comida, bebida o el mate.\n" +
+      "Le pedimos a los mayores el uso responsable de los juguetes.",
+    description:
+      "Políticas e información que se muestran en el modal de reserva. Una línea por ítem (cada línea es una viñeta). Si se deja vacío, no se muestran políticas.",
+  },
+  {
     code: "scheduleSubtitle",
     type: "company",
     dataType: "string",

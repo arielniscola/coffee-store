@@ -15,6 +15,7 @@ import {
   Mail,
   CheckCircle2,
   Users,
+  Info,
 } from "lucide-react";
 import { IConfig } from "../../interfaces/config";
 import { getConfigs, updateConfig } from "../../services/config";
@@ -29,6 +30,7 @@ export type Category =
   | "capacity"
   | "schedule"
   | "public"
+  | "info"
   | "email"
   | "system";
 
@@ -63,6 +65,12 @@ const CATEGORIES: Record<Category, CategoryMeta> = {
     description: "URL pública y enlaces utilizados por Mercado Pago",
     icon: <Globe className="w-5 h-5" />,
     gradient: "from-blue-300 to-cyan-400",
+  },
+  info: {
+    label: "Información",
+    description: "Textos informativos que ve el cliente al reservar",
+    icon: <Info className="w-5 h-5" />,
+    gradient: "from-violet-300 to-purple-400",
   },
   email: {
     label: "Email (SMTP)",
@@ -105,6 +113,7 @@ const CATEGORY_BY_CODE: Record<string, Category> = {
   scheduleDaySaturday: "schedule",
   scheduleDaySunday: "schedule",
   reservationMaxDays: "schedule",
+  policiesText: "info",
   sessionExpiresIn: "system",
 };
 
@@ -208,7 +217,8 @@ const FieldRow = ({
     );
   }
 
-  if (setting.code === "scheduleText") {
+  if (setting.code === "scheduleText" || setting.code === "policiesText") {
+    const isPolicies = setting.code === "policiesText";
     return (
       <div className="py-3">
         {!hideName && (
@@ -224,9 +234,11 @@ const FieldRow = ({
         <textarea
           value={String(value ?? "")}
           onChange={(e) => onChange(e.target.value)}
-          rows={6}
+          rows={isPolicies ? 8 : 6}
           placeholder={
-            "Lunes a domingo\n10 a 12\n13 a 15\n16 a 18\n18:15 a 20:15"
+            isPolicies
+              ? "Trabajamos con turnos de 2 horas.\nNo se permite entrar con comida ni bebida.\nUso responsable de los juguetes."
+              : "Lunes a domingo\n10 a 12\n13 a 15\n16 a 18\n18:15 a 20:15"
           }
           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-300 focus:border-pink-300 resize-y"
         />
@@ -478,6 +490,7 @@ export function CompanySettings({
       capacity: [],
       schedule: [],
       public: [],
+      info: [],
       email: [],
       system: [],
     };

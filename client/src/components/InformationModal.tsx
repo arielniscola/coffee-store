@@ -5,29 +5,24 @@ interface informationModalProps {
   isOpen: boolean;
   onClose: () => void;
   setFormOpen: (val: boolean) => void;
-  priceChild?: number;
-  /** Precios por niño de los talleres próximos (uno por taller). */
-  workshopPrices?: number[];
   /** Horario semanal ya agrupado ("Martes a Viernes" -> "17:00 - 21:00"). */
   scheduleGroups?: { label: string; hours: string }[];
   /** Texto libre de horarios; si está presente reemplaza a scheduleGroups. */
   scheduleText?: string;
   /** Subtítulo opcional sobre los horarios (ej. "Horario especial de Invierno"). */
   scheduleSubtitle?: string;
+  /** Políticas de reserva como texto libre; una línea por viñeta. */
+  policiesText?: string;
 }
-
-const formatPrice = (n: number) =>
-  n.toLocaleString("es-AR", { maximumFractionDigits: 0 });
 
 export default function InformationModal({
   isOpen,
   onClose,
   setFormOpen,
-  priceChild = 0,
-  workshopPrices = [],
   scheduleGroups = [],
   scheduleText = "",
   scheduleSubtitle = "",
+  policiesText = "",
 }: informationModalProps) {
   if (!isOpen) return null;
 
@@ -40,19 +35,11 @@ export default function InformationModal({
         hours: g.hours ? [g.hours] : [],
       }));
 
-  // Los talleres pueden tener distinto precio: mostramos el valor único o un
-  // rango. Si no hay talleres próximos, no se menciona el precio de taller.
-  const distinctWorkshopPrices = Array.from(new Set(workshopPrices)).sort(
-    (a, b) => a - b,
-  );
-  const workshopPriceLabel =
-    distinctWorkshopPrices.length === 0
-      ? null
-      : distinctWorkshopPrices.length === 1
-        ? `Día de talleres $${formatPrice(distinctWorkshopPrices[0])}`
-        : `Días de taller $${formatPrice(distinctWorkshopPrices[0])} a $${formatPrice(
-            distinctWorkshopPrices[distinctWorkshopPrices.length - 1],
-          )}`;
+  // Políticas configurables: una línea por viñeta.
+  const policyLines = policiesText
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
 
   const openForm = () => {
     onClose();
@@ -111,38 +98,17 @@ export default function InformationModal({
               <h3 className="font-semibold text-purple-900 mb-1">
                 Políticas de Reserva e Información
               </h3>
-              <ul className="text-sm text-purple-800 space-y-1">
-                <li>
-                  • Wichi Wi es una cafetería con juegos para niños de 0 a 6
-                  años (juegos de roles y un gran pelotero).
-                </li>
-                <li>
-                  • Para el disfrute del espacio de manera cómoda y segura,
-                  trabajamos con turnos, los cuales tienen una duración de 2
-                  horas (ingresos y salidas puntuales).
-                </li>
-                <li>
-                  • Cada niño abona un monto de ${formatPrice(priceChild)}
-                  {workshopPriceLabel ? ` (${workshopPriceLabel})` : ""}. Esta
-                  entrada incluye las siguientes consumiciones:
-                  <ul>
-                    <li>
-                      {" "}
-                      - Jugo Pura Fruta, Chocolatada, Agua, Leche o Yogurt +
-                      Tortita, Muffin, Budín, Cereales con o sin azúcar,
-                      Panqueque de banana sin azúcar.
-                    </li>
-                  </ul>
-                </li>
-                <li>
-                  • Se recomienda ingresar y pedir a la carta lo que consuman
-                  para evitar retrasos.
-                </li>
-                <li>• No se permite entrar con comida, bebida o el mate.</li>
-                <li>
-                  • Le pedimos a los mayores el uso responsable de los juguetes.
-                </li>
-              </ul>
+              {policyLines.length > 0 ? (
+                <ul className="text-sm text-purple-800 space-y-1">
+                  {policyLines.map((line, i) => (
+                    <li key={i}>• {line}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-purple-800">
+                  Consultá nuestras políticas de reserva antes de continuar.
+                </p>
+              )}
             </div>
           </div>
 

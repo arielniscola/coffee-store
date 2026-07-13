@@ -58,6 +58,7 @@ function CompanyConfig() {
                       "payments",
                       "capacity",
                       "public",
+                      "info",
                       "email",
                       "system",
                     ]}
