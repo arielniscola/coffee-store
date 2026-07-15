@@ -183,8 +183,7 @@ export default function ReservationModal({
 
   // Si la fecha elegida tiene taller, el precio por niño lo define el taller.
   const workshop = useMemo(
-    () =>
-      workshops.find((w) => String(w.date).split("T")[0] === formData.date),
+    () => workshops.find((w) => String(w.date).split("T")[0] === formData.date),
     [workshops, formData.date],
   );
   const effectivePriceChild = workshop ? workshop.priceChild : priceChild;
@@ -238,7 +237,9 @@ export default function ReservationModal({
 
   // Límite de anticipación (config reservationMaxDays). 0 = sin límite.
   const maxDate =
-    maxDays > 0 ? format(addDays(new Date(), maxDays), "yyyy-MM-dd") : undefined;
+    maxDays > 0
+      ? format(addDays(new Date(), maxDays), "yyyy-MM-dd")
+      : undefined;
   const isDateBeyondMax = !!maxDate && formData.date > maxDate;
 
   const canGoStep2 =
@@ -433,7 +434,7 @@ export default function ReservationModal({
                     />
                     <div className="text-sm text-purple-800">
                       <p className="font-semibold">
-                        Ese día hay taller: {workshop.title}
+                        Ese día hay: {workshop.title}
                       </p>
                       {workshop.description && (
                         <p className="mt-0.5">{workshop.description}</p>
@@ -514,8 +515,7 @@ export default function ReservationModal({
                   {effectivePriceChild > 0 && (
                     <p className="text-xs text-gray-500 mt-1">
                       Niño ${effectivePriceChild.toFixed(2)}
-                      {workshop ? " (precio de taller)" : ""} · Adultos sin
-                      seña
+                      {workshop ? " (precio de taller)" : ""} · Adultos sin seña
                     </p>
                   )}
                 </div>
