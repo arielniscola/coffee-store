@@ -387,18 +387,33 @@ export class ShiftController {
 
       const expiresAt = moment().add(15, "minutes").toDate();
       shift.paymentExpiresAt = expiresAt;
-      let totalPrice = Number(shift.price) || 0;
 
-      // Si la fecha tiene taller, el precio por niño lo define el taller:
-      // se recalcula acá para no depender del precio que manda el cliente.
+      // El precio se recalcula siempre en el servidor para no depender del
+      // que manda el cliente. Si la fecha tiene taller, el precio por niño
+      // lo define el taller.
       const workshop = await workshopService.findActiveByDate(
         companyCode,
         dateStr
       );
-      if (workshop) {
-        totalPrice = (shift.childrenQty || 0) * workshop.priceChild;
-        shift.price = totalPrice;
-      }
+      const priceChildConfig = await configService.findOne({
+        code: "priceChild",
+        companyCode,
+      });
+      const priceAdultConfig = await configService.findOne({
+        code: "priceAdult",
+        companyCode,
+      });
+      const priceChild = workshop
+        ? workshop.priceChild
+        : Number(priceChildConfig?.value) || 0;
+      const priceAdult = Number(priceAdultConfig?.value) || 0;
+      const adultsQty = shift.adultsQty || 0;
+
+      // Los adultos solo abonan seña cuando la reserva tiene 8 adultos o más.
+      const totalPrice =
+        (shift.childrenQty || 0) * priceChild +
+        (adultsQty >= 8 ? adultsQty * priceAdult : 0);
+      shift.price = totalPrice;
 
       // Idempotencia: si el mismo cliente ya tiene una reserva pendingPayment
       // viva para el mismo turno, reusarla en vez de duplicar.

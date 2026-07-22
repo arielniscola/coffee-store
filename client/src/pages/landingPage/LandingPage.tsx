@@ -222,7 +222,15 @@ function LandingPage() {
               <div className="w-24 h-1 bg-gradient-to-r from-pink-300 to-blue-300 mx-auto mb-8"></div>
             </div>
 
-            <div className="grid md:grid-cols-2 gap-8 items-center mb-8">
+            <div className="grid md:grid-cols-2 gap-8 items-center">
+              <div className="w-full h-80 md:h-[34rem] bg-gray-300 rounded-lg shadow-lg overflow-hidden">
+                <img
+                  src="/images/family.jpeg"
+                  alt="Familias compartiendo en Wichi Wi"
+                  loading="lazy"
+                  className="w-full h-full object-cover object-center"
+                />
+              </div>
               <div className="px-4">
                 <p className="text-base md:text-lg mb-4 text-justify">
                   El presente proyecto surge de la iniciativa de dos familias
@@ -231,27 +239,6 @@ function LandingPage() {
                   necesidad de contar en la provincia de Mendoza con un espacio
                   donde niños y adultos puedan disfrutar simultáneamente.
                 </p>
-              </div>
-              <div className="w-full h-80 md:h-[34rem] bg-gray-300 rounded-lg shadow-lg overflow-hidden">
-                <img
-                  src="/images/historia1.jpeg"
-                  alt="Familias compartiendo en Wichi Wi"
-                  loading="lazy"
-                  className="w-full h-full object-cover object-[center_25%]"
-                />
-              </div>
-            </div>
-
-            <div className="grid md:grid-cols-2 gap-8 items-center">
-              <div className="w-full h-80 md:h-[34rem] bg-gray-300 rounded-lg shadow-lg overflow-hidden md:order-first order-last">
-                <img
-                  src="/images/historia2.jpeg"
-                  alt="Espacio de juegos para niños"
-                  loading="lazy"
-                  className="w-full h-full object-cover object-[center_30%]"
-                />
-              </div>
-              <div className="px-4">
                 <p className="text-base md:text-lg mb-4 text-justify">
                   La idea nació a partir de nuestra experiencia como padres, al
                   buscar un lugar que combinara un entorno seguro y estimulante
