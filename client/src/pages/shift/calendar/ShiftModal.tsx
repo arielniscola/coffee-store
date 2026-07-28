@@ -65,6 +65,7 @@ export default function ShiftModal({
     peopleQty: initialShift?.peopleQty || 0,
     adultsQty: initialShift?.adultsQty || 1,
     childrenQty: initialShift?.childrenQty || 0,
+    babiesQty: initialShift?.babiesQty || 0,
     price: initialShift?.price || 0,
   });
 
@@ -288,7 +289,7 @@ export default function ShiftModal({
             <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
               Personas
             </h3>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-4 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Adultos *
@@ -332,6 +333,29 @@ export default function ShiftModal({
                       setFormData({
                         ...formData,
                         childrenQty: parseInt(e.target.value) || 0,
+                      })
+                    }
+                    className="w-full pl-10 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-300 focus:border-pink-300"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Bebés
+                </label>
+                <div className="relative">
+                  <Users
+                    size={18}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                  />
+                  <input
+                    type="number"
+                    min="0"
+                    value={formData.babiesQty}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        babiesQty: parseInt(e.target.value) || 0,
                       })
                     }
                     className="w-full pl-10 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-300 focus:border-pink-300"

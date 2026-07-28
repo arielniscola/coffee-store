@@ -245,7 +245,11 @@ export default function PaymentResult() {
                         {summary.peopleQty} personas
                         {summary.adultsQty != null &&
                         summary.childrenQty != null
-                          ? ` (${summary.adultsQty} adultos, ${summary.childrenQty} niños)`
+                          ? ` (${summary.adultsQty} adultos, ${summary.childrenQty} niños${
+                              summary.babiesQty
+                                ? `, ${summary.babiesQty} bebés`
+                                : ""
+                            })`
                           : ""}
                       </span>
                     </div>

@@ -160,6 +160,7 @@ export interface ShiftPaymentSummary {
   peopleQty?: number;
   adultsQty?: number;
   childrenQty?: number;
+  babiesQty?: number;
   price?: number;
   paymentLink?: string;
 }

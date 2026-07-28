@@ -57,6 +57,7 @@ const initialFormData = (unitBusiness = ""): IShift => ({
   peopleQty: 0,
   adultsQty: 1,
   childrenQty: 0,
+  babiesQty: 0,
 });
 
 const DRAFT_STORAGE_KEY = "reservationDraft";
@@ -193,16 +194,25 @@ export default function ReservationModal({
   );
   const effectivePriceChild = workshop ? workshop.priceChild : priceChild;
 
-  // Los adultos solo abonan seña cuando la reserva tiene 8 adultos o más.
-  const ADULTS_THRESHOLD = 8;
-  const adultsPay = (formData.adultsQty || 0) >= ADULTS_THRESHOLD;
-  const adultsTotal = adultsPay ? (formData.adultsQty || 0) * priceAdult : 0;
+  // El cobro es excluyente: si hay al menos un niño se cobra solo por niños;
+  // si no hay niños se cobra por adultos. Los bebés nunca abonan.
+  const chargeByChildren = (formData.childrenQty || 0) > 0;
 
   const totalPrice = useMemo(
-    () => (formData.childrenQty || 0) * effectivePriceChild + adultsTotal,
-    [formData.childrenQty, effectivePriceChild, adultsTotal],
+    () =>
+      chargeByChildren
+        ? (formData.childrenQty || 0) * effectivePriceChild
+        : (formData.adultsQty || 0) * priceAdult,
+    [
+      chargeByChildren,
+      formData.childrenQty,
+      formData.adultsQty,
+      effectivePriceChild,
+      priceAdult,
+    ],
   );
 
+  // Los bebés no ocupan cupo, por eso no suman al total de personas.
   const peopleQty = useMemo(
     () => (formData.adultsQty || 0) + (formData.childrenQty || 0),
     [formData.adultsQty, formData.childrenQty],
@@ -457,7 +467,7 @@ export default function ReservationModal({
                 )}
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Adultos *
@@ -508,11 +518,41 @@ export default function ReservationModal({
                     />
                   </div>
                 </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Bebés
+                  </label>
+                  <div className="relative">
+                    <Users
+                      size={18}
+                      className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+                    />
+                    <input
+                      type="number"
+                      min="0"
+                      max="20"
+                      value={formData.babiesQty}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          babiesQty: parseInt(e.target.value) || 0,
+                        })
+                      }
+                      className="w-full pl-10 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-400 focus:border-transparent"
+                    />
+                  </div>
+                </div>
               </div>
 
               <div className="bg-gray-50 rounded-lg p-3 text-sm text-gray-600 text-center">
                 Total de personas:{" "}
                 <span className="font-bold">{peopleQty}</span>
+                {(formData.babiesQty || 0) > 0 && (
+                  <span className="block text-xs text-gray-500 mt-0.5">
+                    + {formData.babiesQty} bebés
+                  </span>
+                )}
               </div>
 
               {totalPrice > 0 && (
@@ -521,19 +561,15 @@ export default function ReservationModal({
                   <p className="text-2xl font-bold text-pink-600">
                     ${totalPrice.toFixed(2)}
                   </p>
-                  {effectivePriceChild > 0 && (
+                  {chargeByChildren ? (
                     <p className="text-xs text-gray-500 mt-1">
-                      Niño ${effectivePriceChild.toFixed(2)}
-                      {workshop ? " (precio de taller)" : ""} ·{" "}
-                      {adultsPay
-                        ? `Adulto $${priceAdult.toFixed(2)} (${ADULTS_THRESHOLD} adultos o más)`
-                        : "Adultos sin seña"}
+                      {formData.childrenQty} niños × $
+                      {effectivePriceChild.toFixed(2)}
+                      {workshop ? " (precio de taller)" : ""} · Adultos sin seña
                     </p>
-                  )}
-                  {!effectivePriceChild && adultsPay && (
+                  ) : (
                     <p className="text-xs text-gray-500 mt-1">
-                      Adulto ${priceAdult.toFixed(2)} ({ADULTS_THRESHOLD}{" "}
-                      adultos o más)
+                      {formData.adultsQty} adultos × ${priceAdult.toFixed(2)}
                     </p>
                   )}
                 </div>
@@ -719,6 +755,8 @@ export default function ReservationModal({
                 <p>
                   <strong>Personas:</strong> {peopleQty} ({formData.adultsQty}{" "}
                   adultos, {formData.childrenQty} niños)
+                  {(formData.babiesQty || 0) > 0 &&
+                    ` + ${formData.babiesQty} bebés`}
                 </p>
                 {workshop && (
                   <p>
@@ -727,24 +765,27 @@ export default function ReservationModal({
                 )}
                 {totalPrice > 0 && (
                   <div className="pt-2 mt-2 border-t border-blue-200">
-                    {effectivePriceChild > 0 &&
-                      (formData.childrenQty || 0) > 0 && (
+                    {chargeByChildren ? (
+                      <>
                         <p className="text-xs text-gray-600">
-                          {formData.childrenQty} × $
+                          {formData.childrenQty} niños × $
                           {effectivePriceChild.toFixed(2)} = $
                           {(
                             (formData.childrenQty || 0) * effectivePriceChild
                           ).toFixed(2)}
                         </p>
-                      )}
-                    {adultsPay ? (
-                      <p className="text-xs text-gray-600">
-                        {formData.adultsQty} × ${priceAdult.toFixed(2)} = $
-                        {adultsTotal.toFixed(2)} ({ADULTS_THRESHOLD} adultos o
-                        más)
-                      </p>
+                        <p className="text-xs text-gray-600">
+                          Adultos sin seña
+                        </p>
+                      </>
                     ) : (
-                      <p className="text-xs text-gray-600">Adultos sin seña</p>
+                      <p className="text-xs text-gray-600">
+                        {formData.adultsQty} adultos × ${priceAdult.toFixed(2)}{" "}
+                        = ${totalPrice.toFixed(2)}
+                      </p>
+                    )}
+                    {(formData.babiesQty || 0) > 0 && (
+                      <p className="text-xs text-gray-600">Bebés sin cargo</p>
                     )}
                     <p className="font-bold text-base text-pink-600 mt-1">
                       Total: ${totalPrice.toFixed(2)}

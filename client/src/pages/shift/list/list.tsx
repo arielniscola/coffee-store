@@ -302,6 +302,7 @@ export function ReservationList() {
                   const meta = STATUS_META[r.status] || STATUS_META.completed;
                   const adults = r.adultsQty ?? r.peopleQty ?? 0;
                   const children = r.childrenQty ?? 0;
+                  const babies = r.babiesQty ?? 0;
                   return (
                     <tr key={r._id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-4 py-3 whitespace-nowrap text-gray-700">
@@ -329,6 +330,9 @@ export function ReservationList() {
                           {adults}
                           {children > 0 && ` + ${children} niño${
                             children !== 1 ? "s" : ""
+                          }`}
+                          {babies > 0 && ` + ${babies} bebé${
+                            babies !== 1 ? "s" : ""
                           }`}
                         </span>
                       </td>

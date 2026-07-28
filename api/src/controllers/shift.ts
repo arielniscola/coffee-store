@@ -198,6 +198,7 @@ export class ShiftController {
         people: 0,
         adults: 0,
         children: 0,
+        babies: 0,
         toConfirm: 0,
         cancelled: 0,
         total: 0,
@@ -214,6 +215,7 @@ export class ShiftController {
         totalForStatus.people += el.peopleQty ? el.peopleQty : 0;
         totalForStatus.adults += el.adultsQty ? el.adultsQty : 0;
         totalForStatus.children += el.childrenQty ? el.childrenQty : 0;
+        totalForStatus.babies += el.babiesQty ? el.babiesQty : 0;
       }
       return res.status(200).json({ ack: 0, data: totalForStatus });
     } catch (e) {
@@ -408,11 +410,15 @@ export class ShiftController {
         : Number(priceChildConfig?.value) || 0;
       const priceAdult = Number(priceAdultConfig?.value) || 0;
       const adultsQty = shift.adultsQty || 0;
+      const childrenQty = shift.childrenQty || 0;
 
-      // Los adultos solo abonan seña cuando la reserva tiene 8 adultos o más.
+      // El cobro es excluyente: si la reserva incluye al menos un niño se cobra
+      // únicamente por los niños; si no hay niños se cobra por los adultos.
+      // Los bebés nunca abonan.
       const totalPrice =
-        (shift.childrenQty || 0) * priceChild +
-        (adultsQty >= 8 ? adultsQty * priceAdult : 0);
+        childrenQty > 0
+          ? childrenQty * priceChild
+          : adultsQty * priceAdult;
       shift.price = totalPrice;
 
       // Idempotencia: si el mismo cliente ya tiene una reserva pendingPayment
@@ -527,6 +533,7 @@ export class ShiftController {
         peopleQty: shift.peopleQty,
         adultsQty: shift.adultsQty,
         childrenQty: shift.childrenQty,
+        babiesQty: shift.babiesQty,
         price: shift.price,
         paymentLink: shift.paymentLink,
       };

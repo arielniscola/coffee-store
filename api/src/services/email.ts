@@ -79,9 +79,13 @@ const buildConfirmationHtml = (
   const modifyText = waLink
     ? `Si necesitás modificar tu reserva, <a href="${waLink}" style="color:#16a34a;font-weight:600;text-decoration:none;">contactanos por WhatsApp</a>.`
     : "Si necesitás modificar tu reserva, contactanos por WhatsApp.";
+  // Los bebés no suman al total de personas, se detallan aparte.
+  const babiesDetail = shift.babiesQty
+    ? `, ${shift.babiesQty} bebés`
+    : "";
   const peopleDetail =
     shift.adultsQty != null && shift.childrenQty != null
-      ? `${shift.peopleQty} personas (${shift.adultsQty} adultos, ${shift.childrenQty} niños)`
+      ? `${shift.peopleQty} personas (${shift.adultsQty} adultos, ${shift.childrenQty} niños${babiesDetail})`
       : `${shift.peopleQty || 0} personas`;
   const priceRow =
     shift.price && shift.price > 0

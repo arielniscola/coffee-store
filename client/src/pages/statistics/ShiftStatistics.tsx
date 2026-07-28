@@ -34,6 +34,7 @@ interface Stats {
   people: number;
   adults: number;
   children: number;
+  babies: number;
 }
 
 interface KpiProps {
@@ -292,7 +293,7 @@ const ShiftStatistics = () => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   <KpiCard
                     title="Total personas"
                     value={stats.people}
@@ -312,6 +313,13 @@ const ShiftStatistics = () => {
                     icon={Baby}
                     gradient="bg-gradient-to-br from-pink-400 to-pink-500"
                     hint={`${peopleSplit.children}% del total`}
+                  />
+                  <KpiCard
+                    title="Bebés"
+                    value={stats.babies || 0}
+                    icon={Baby}
+                    gradient="bg-gradient-to-br from-amber-400 to-amber-500"
+                    hint="No ocupan lugar"
                   />
                 </div>
 

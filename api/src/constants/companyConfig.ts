@@ -134,7 +134,7 @@ export const DEFAULT_COMPANY_SETTINGS = [
     name: "Precio por adulto",
     value: 0,
     description:
-      "Precio de la reserva por cada adulto. Se muestra al cliente al reservar y se guarda como total en la reserva.",
+      "Precio de la reserva por cada adulto. Solo se cobra cuando la reserva NO incluye niños; si hay al menos un niño se cobra únicamente el precio por niño. Los bebés nunca abonan.",
   },
   {
     code: "priceChild",
@@ -143,7 +143,7 @@ export const DEFAULT_COMPANY_SETTINGS = [
     name: "Precio por niño",
     value: 0,
     description:
-      "Precio de la reserva por cada niño. Se suma al total al momento de reservar.",
+      "Precio de la reserva por cada niño. Si la reserva incluye al menos un niño, el total se calcula solo con este precio y los adultos no abonan.",
   },
   {
     code: "whatsappNumber",

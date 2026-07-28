@@ -262,6 +262,7 @@ export default function Calendar({
                           const adults =
                             reserva.adultsQty ?? reserva.peopleQty ?? 0;
                           const children = reserva.childrenQty ?? 0;
+                          const babies = reserva.babiesQty ?? 0;
                           return (
                             <div
                               key={reserva._id}
@@ -303,6 +304,10 @@ export default function Calendar({
                                   {children > 0 &&
                                     `, ${children} niño${
                                       children !== 1 ? "s" : ""
+                                    }`}
+                                  {babies > 0 &&
+                                    `, ${babies} bebé${
+                                      babies !== 1 ? "s" : ""
                                     }`}
                                 </div>
                                 {reserva.phoneNumber && (
