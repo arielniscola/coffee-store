@@ -18,6 +18,7 @@ import {
 } from "../services/shiftService";
 import { getConfigs } from "../services/config";
 import { IConfig } from "../interfaces/config";
+import { formatShortDate } from "../utils/dates";
 
 type State = "loading" | "approved" | "pending" | "rejected" | "unknown";
 
@@ -164,35 +165,17 @@ export default function PaymentResult() {
     ? `#${shiftId.slice(-8).toUpperCase()}`
     : "";
 
+  // La fecha de la reserva llega como ISO en medianoche UTC: se formatea desde
+  // el string para no correr un día según la zona horaria del navegador.
+  const formatDate = (raw?: string) => (raw ? formatShortDate(raw) : "");
+
   const approvedWhatsAppText = summary
-    ? `Hola! Confirmo mi reserva ${reservaTag} a nombre de ${summary.client || ""} para el ${formatDateRaw(summary.date)} a las ${summary.timeStart || ""} hs (${summary.peopleQty || 0} personas). El pago ya está aprobado.`
+    ? `Hola! Confirmo mi reserva ${reservaTag} a nombre de ${summary.client || ""} para el ${formatDate(summary.date)} a las ${summary.timeStart || ""} hs (${summary.peopleQty || 0} personas). El pago ya está aprobado.`
     : `Hola! Confirmo mi reserva ${reservaTag}. El pago ya está aprobado.`;
 
   const pendingWhatsAppText = summary
-    ? `Hola! Hice una reserva ${reservaTag} a nombre de ${summary.client || ""} para el ${formatDateRaw(summary.date)} a las ${summary.timeStart || ""} hs. El pago figura como pendiente, ¿podrían confirmarlo?`
+    ? `Hola! Hice una reserva ${reservaTag} a nombre de ${summary.client || ""} para el ${formatDate(summary.date)} a las ${summary.timeStart || ""} hs. El pago figura como pendiente, ¿podrían confirmarlo?`
     : `Hola! Tengo la reserva ${reservaTag} con el pago pendiente. ¿Pueden ayudarme a confirmarla?`;
-
-  function formatDateRaw(raw?: string) {
-    if (!raw) return "";
-    const d = new Date(raw);
-    if (isNaN(d.getTime())) return raw;
-    return d.toLocaleDateString("es-AR", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    });
-  }
-
-  const formatDate = (raw?: string) => {
-    if (!raw) return "";
-    const d = new Date(raw);
-    if (isNaN(d.getTime())) return raw;
-    return d.toLocaleDateString("es-AR", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    });
-  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-blue-50 p-4">

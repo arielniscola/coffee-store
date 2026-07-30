@@ -12,6 +12,7 @@ import {
 import { getShifts } from "../services/shiftService";
 import { IShift } from "../interfaces/shift";
 import { format, addDays, parseISO } from "date-fns";
+import { dayPart } from "../utils/dates";
 
 // yyyy-MM-dd -> "dd/MM/yyyy" sin construir Date (evita saltos de zona horaria).
 const formatDateLabel = (d: string): string => {
@@ -71,10 +72,9 @@ const Dashboard = () => {
 
   const dayShifts = shifts.filter((s) => {
     if (!s.date) return false;
-    const d =
-      typeof s.date === "string"
-        ? s.date.slice(0, 10)
-        : format(new Date(s.date), "yyyy-MM-dd");
+    // La fecha viene como ISO en medianoche UTC: se toma la parte de día del
+    // string para no correr un día según la zona horaria del navegador.
+    const d = dayPart(s.date);
     return d === selectedDate && s.status !== "cancelled";
   });
   const confirmedDay = dayShifts.filter(

@@ -7,7 +7,7 @@ import Calendar from "./Calendar";
 import ShiftModal from "./ShiftModal";
 import type { IShift } from "../../../interfaces/shift";
 import { useEffect, useState } from "react";
-import { format, addDays } from "date-fns";
+import { format, addDays, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
 import {
   createShift,
@@ -174,10 +174,14 @@ function CalendarMenu() {
               </button>
               <input
                 type="date"
-                value={format(new Date(currentDate), "yyyy-MM-dd", {
+                value={format(currentDate, "yyyy-MM-dd", {
                   locale: es,
                 })}
-                onChange={(e) => setCurrentDate(new Date(e.target.value))}
+                // parseISO interpreta yyyy-MM-dd como medianoche local; con
+                // new Date(str) se interpretaría como UTC y el día se corría.
+                onChange={(e) =>
+                  e.target.value && setCurrentDate(parseISO(e.target.value))
+                }
                 className="px-3 py-1.5 border-0 focus:ring-0 text-gray-700 bg-transparent"
               />
               <button

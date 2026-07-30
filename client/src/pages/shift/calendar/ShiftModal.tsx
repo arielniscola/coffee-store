@@ -13,6 +13,7 @@ import {
 import type { IShift } from "../../../interfaces/shift";
 import { getAvailableShifts } from "../../../services/shiftService";
 import { format } from "date-fns";
+import { todayISO } from "../../../utils/dates";
 
 interface ShiftModalProps {
   isOpen: boolean;
@@ -158,11 +159,9 @@ export default function ShiftModal({
   };
 
   const handleDate = (date: string) => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const inputDate = new Date(date);
-    inputDate.setHours(0, 0, 0, 0);
-    if (inputDate >= today) {
+    // Comparación lexicográfica sobre yyyy-MM-dd: new Date("yyyy-MM-dd") se
+    // interpreta como UTC y hacía que "hoy" contara como fecha pasada.
+    if (date >= todayISO()) {
       setFormData({ ...formData, date, timeStart: "" });
       setErrorDate(false);
     } else {

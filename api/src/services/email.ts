@@ -53,15 +53,17 @@ const getTransporter = async (
   return cachedTransporter;
 };
 
+/**
+ * dd/MM/yyyy de la fecha de una reserva. Las reservas se guardan como
+ * medianoche UTC, así que se formatea con los componentes UTC: usar la zona
+ * horaria del proceso correría el día si `TZ` no fuese UTC.
+ */
 const formatDate = (raw?: Date | string): string => {
   if (!raw) return "";
-  const d = new Date(raw);
+  const d = raw instanceof Date ? raw : new Date(raw);
   if (isNaN(d.getTime())) return String(raw);
-  return d.toLocaleDateString("es-AR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${p(d.getUTCDate())}/${p(d.getUTCMonth() + 1)}/${d.getUTCFullYear()}`;
 };
 
 const buildConfirmationHtml = (
