@@ -169,8 +169,23 @@ export default function PaymentResult() {
   // el string para no correr un día según la zona horaria del navegador.
   const formatDate = (raw?: string) => (raw ? formatShortDate(raw) : "");
 
+  // Detalle discriminado por tipo (ej. "1 adulto + 2 niños + 1 bebé"). Si el
+  // turno no trae el desglose, se cae al total de personas.
+  const buildPeopleDetail = (s: ShiftPaymentSummary) => {
+    const parts: string[] = [];
+    const push = (qty: number | undefined, singular: string, plural: string) => {
+      if (qty && qty > 0) parts.push(`${qty} ${qty === 1 ? singular : plural}`);
+    };
+    push(s.adultsQty, "adulto", "adultos");
+    push(s.childrenQty, "niño", "niños");
+    push(s.babiesQty, "bebé", "bebés");
+    if (parts.length) return parts.join(" + ");
+    const total = s.peopleQty || 0;
+    return `${total} ${total === 1 ? "persona" : "personas"}`;
+  };
+
   const approvedWhatsAppText = summary
-    ? `Hola! Confirmo mi reserva ${reservaTag} a nombre de ${summary.client || ""} para el ${formatDate(summary.date)} a las ${summary.timeStart || ""} hs (${summary.peopleQty || 0} personas). El pago ya está aprobado.`
+    ? `Hola! Confirmo mi reserva ${reservaTag} a nombre de ${summary.client || ""} para el ${formatDate(summary.date)} a las ${summary.timeStart || ""} hs (${buildPeopleDetail(summary)}). El pago ya está aprobado.`
     : `Hola! Confirmo mi reserva ${reservaTag}. El pago ya está aprobado.`;
 
   const pendingWhatsAppText = summary

@@ -66,6 +66,22 @@ const formatDate = (raw?: Date | string): string => {
   return `${p(d.getUTCDate())}/${p(d.getUTCMonth() + 1)}/${d.getUTCFullYear()}`;
 };
 
+// Detalle discriminado por tipo (ej. "1 adulto + 2 niños + 1 bebé"). Los bebés
+// no suman al total de personas, por eso se listan como una categoría más. Si
+// el turno no trae el desglose, se cae al total de personas.
+const buildPeopleDetail = (shift: IShift): string => {
+  const parts: string[] = [];
+  const push = (qty: number | undefined, singular: string, plural: string) => {
+    if (qty && qty > 0) parts.push(`${qty} ${qty === 1 ? singular : plural}`);
+  };
+  push(shift.adultsQty, "adulto", "adultos");
+  push(shift.childrenQty, "niño", "niños");
+  push(shift.babiesQty, "bebé", "bebés");
+  if (parts.length) return parts.join(" + ");
+  const total = shift.peopleQty || 0;
+  return `${total} ${total === 1 ? "persona" : "personas"}`;
+};
+
 const buildConfirmationHtml = (
   shift: IShift,
   companyName: string,
@@ -81,14 +97,7 @@ const buildConfirmationHtml = (
   const modifyText = waLink
     ? `Si necesitás modificar tu reserva, <a href="${waLink}" style="color:#16a34a;font-weight:600;text-decoration:none;">contactanos por WhatsApp</a>.`
     : "Si necesitás modificar tu reserva, contactanos por WhatsApp.";
-  // Los bebés no suman al total de personas, se detallan aparte.
-  const babiesDetail = shift.babiesQty
-    ? `, ${shift.babiesQty} bebés`
-    : "";
-  const peopleDetail =
-    shift.adultsQty != null && shift.childrenQty != null
-      ? `${shift.peopleQty} personas (${shift.adultsQty} adultos, ${shift.childrenQty} niños${babiesDetail})`
-      : `${shift.peopleQty || 0} personas`;
+  const peopleDetail = buildPeopleDetail(shift);
   const priceRow =
     shift.price && shift.price > 0
       ? `<tr><td style="padding:6px 0;color:#6b7280;">Pagado</td><td style="padding:6px 0;font-weight:600;text-align:right;">$${shift.price.toFixed(2)}</td></tr>`
