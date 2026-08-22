@@ -39,6 +39,7 @@ export class WeeklyScheduleService extends Service<IWeeklySchedule> {
       result[key] = ranges.map((r) => ({
         start: minutesToTime(r.start),
         end: minutesToTime(r.end),
+        free: !!r.free,
       }));
     }
     return result as IWeeklySchedule;
@@ -60,6 +61,7 @@ export class WeeklyScheduleService extends Service<IWeeklySchedule> {
         .map((r) => ({
           start: timeToMinutes(r.start),
           end: timeToMinutes(r.end),
+          free: !!r.free,
         }))
         .filter((r) => !Number.isNaN(r.start) && !Number.isNaN(r.end) && r.end > r.start);
     }
@@ -116,6 +118,7 @@ export class WeeklyScheduleService extends Service<IWeeklySchedule> {
       update[key] = ((schedule[key] as ITimeRangeDoc[]) || []).map((r) => ({
         start: r.start,
         end: r.end,
+        free: !!r.free,
       }));
     }
     return await this.findOneAndUpdate({ companyCode }, update, {

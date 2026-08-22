@@ -10,6 +10,8 @@ import configService from "./config";
 export interface TimeRange {
   start: number;
   end: number;
+  /** Franja sin seña: los turnos que caen adentro no abonan reserva. */
+  free?: boolean;
 }
 
 /** Convierte "HH:mm" a minutos desde la medianoche. */

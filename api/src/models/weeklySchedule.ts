@@ -4,6 +4,11 @@ import { createModel, createSchema } from ".";
 export interface ITimeRangeDoc {
   start: string;
   end: string;
+  /**
+   * Franja sin seña: los turnos que caen en este rango no abonan reserva
+   * (se crean directo, sin pasar por Mercado Pago).
+   */
+  free?: boolean;
 }
 
 /**
@@ -40,6 +45,7 @@ export const WEEKDAY_KEYS: (keyof Omit<
 const rangeDef = {
   start: { type: String, required: true },
   end: { type: String, required: true },
+  free: { type: Boolean, default: false },
 };
 
 const WeeklyScheduleSchema = createSchema<IWeeklySchedule>(

@@ -1,6 +1,8 @@
 export interface ITimeRange {
   start: string;
   end: string;
+  /** Franja sin seña: los turnos de este rango no abonan reserva. */
+  free?: boolean;
 }
 
 export type WeekdayKey =

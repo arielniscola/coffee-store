@@ -27,9 +27,11 @@ interface KpiCardProps {
   value: string | number;
   icon: React.ReactNode;
   gradient: string;
+  /** Desglose opcional debajo del valor (ej. adultos/niños/bebés). */
+  detail?: React.ReactNode;
 }
 
-const KpiCard = ({ label, value, icon, gradient }: KpiCardProps) => (
+const KpiCard = ({ label, value, icon, gradient, detail }: KpiCardProps) => (
   <div className="bg-white rounded-xl shadow-md p-6 flex items-center gap-4 hover:shadow-lg transition-shadow">
     <div
       className={`w-14 h-14 rounded-full flex items-center justify-center text-white shadow-md ${gradient}`}
@@ -39,6 +41,7 @@ const KpiCard = ({ label, value, icon, gradient }: KpiCardProps) => (
     <div>
       <p className="text-sm text-gray-500">{label}</p>
       <p className="text-2xl font-bold text-gray-800">{value}</p>
+      {detail}
     </div>
   </div>
 );
@@ -81,7 +84,20 @@ const Dashboard = () => {
     (s) => s.status === "confirmed" || s.status === "paid",
   );
   const pendingDay = dayShifts.filter((s) => s.status === "toConfirm");
-  const peopleDay = dayShifts.reduce((acc, s) => acc + (s.peopleQty || 0), 0);
+  // Los bebés no ocupan cupo, por eso no suman a "Personas": se muestran aparte.
+  const adultsDay = dayShifts.reduce((acc, s) => acc + (s.adultsQty || 0), 0);
+  const childrenDay = dayShifts.reduce(
+    (acc, s) => acc + (s.childrenQty || 0),
+    0,
+  );
+  const babiesDay = dayShifts.reduce((acc, s) => acc + (s.babiesQty || 0), 0);
+  // Reservas viejas pueden tener peopleQty sin el desglose cargado: en ese
+  // caso el total sigue saliendo de peopleQty.
+  const peopleDay = dayShifts.reduce(
+    (acc, s) =>
+      acc + (s.peopleQty || (s.adultsQty || 0) + (s.childrenQty || 0)),
+    0,
+  );
   const upcoming = [...dayShifts]
     .filter((s) => s.timeStart)
     .sort((a, b) => a.timeStart.localeCompare(b.timeStart))
@@ -168,6 +184,19 @@ const Dashboard = () => {
                 value={loading ? "…" : peopleDay}
                 icon={<Users className="w-6 h-6" />}
                 gradient="bg-gradient-to-br from-blue-400 to-blue-500"
+                detail={
+                  loading ? undefined : (
+                    <p className="text-xs text-gray-500 mt-0.5 leading-tight">
+                      {adultsDay} adultos · {childrenDay} niños
+                      {babiesDay > 0 && (
+                        <>
+                          <br />
+                          {babiesDay} bebés (no ocupan cupo)
+                        </>
+                      )}
+                    </p>
+                  )
+                }
               />
             </div>
 
@@ -202,7 +231,17 @@ const Dashboard = () => {
                               {s.client || "Sin nombre"}
                             </p>
                             <p className="text-sm text-gray-500">
-                              {s.timeStart} · {s.peopleQty} personas
+                              {s.timeStart} ·{" "}
+                              {s.peopleQty ||
+                                (s.adultsQty || 0) + (s.childrenQty || 0)}{" "}
+                              personas
+                            </p>
+                            <p className="text-xs text-gray-400">
+                              {s.adultsQty || 0} adultos · {s.childrenQty || 0}{" "}
+                              niños
+                              {(s.babiesQty || 0) > 0
+                                ? ` · ${s.babiesQty} bebés`
+                                : ""}
                             </p>
                           </div>
                         </div>

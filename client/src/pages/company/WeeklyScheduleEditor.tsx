@@ -40,8 +40,8 @@ const validate = (schedule: IWeeklySchedule): string | null => {
 };
 
 const serialize = (s: IWeeklySchedule) =>
-  WEEKDAYS.map(
-    ({ key }) => s[key].map((r) => `${r.start}-${r.end}`).join(","),
+  WEEKDAYS.map(({ key }) =>
+    s[key].map((r) => `${r.start}-${r.end}${r.free ? "*" : ""}`).join(","),
   ).join("|");
 
 export default function WeeklyScheduleEditor() {
@@ -83,7 +83,7 @@ export default function WeeklyScheduleEditor() {
     day: WeekdayKey,
     index: number,
     field: keyof ITimeRange,
-    value: string,
+    value: string | boolean,
   ) => {
     setSchedule((prev) => {
       const ranges = [...prev[day]];
@@ -95,7 +95,7 @@ export default function WeeklyScheduleEditor() {
   const addRange = (day: WeekdayKey) => {
     setSchedule((prev) => ({
       ...prev,
-      [day]: [...prev[day], { start: "09:00", end: "18:00" }],
+      [day]: [...prev[day], { start: "09:00", end: "18:00", free: false }],
     }));
   };
 
@@ -143,7 +143,8 @@ export default function WeeklyScheduleEditor() {
             Franjas horarias por día
           </p>
           <p className="text-xs text-gray-500">
-            Agregá una o varias franjas por día (hora de inicio y fin).
+            Agregá una o varias franjas por día (hora de inicio y fin). Marcá
+            "Sin seña" para que los turnos de esa franja se reserven sin pagar.
           </p>
         </div>
       </div>
@@ -173,32 +174,45 @@ export default function WeeklyScheduleEditor() {
             ) : (
               <div className="space-y-2">
                 {schedule[key].map((r, i) => (
-                  <div key={i} className="flex items-center gap-2">
-                    <input
-                      type="time"
-                      value={r.start}
-                      onChange={(e) =>
-                        updateRange(key, i, "start", e.target.value)
-                      }
-                      className="flex-1 px-2 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-pink-200 focus:border-pink-300 outline-none"
-                    />
-                    <span className="text-gray-400 text-sm">a</span>
-                    <input
-                      type="time"
-                      value={r.end}
-                      onChange={(e) =>
-                        updateRange(key, i, "end", e.target.value)
-                      }
-                      className="flex-1 px-2 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-pink-200 focus:border-pink-300 outline-none"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => removeRange(key, i)}
-                      className="p-1.5 text-gray-400 hover:text-red-500 transition-colors"
-                      aria-label="Quitar franja"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                  <div key={i} className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="time"
+                        value={r.start}
+                        onChange={(e) =>
+                          updateRange(key, i, "start", e.target.value)
+                        }
+                        className="flex-1 px-2 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-pink-200 focus:border-pink-300 outline-none"
+                      />
+                      <span className="text-gray-400 text-sm">a</span>
+                      <input
+                        type="time"
+                        value={r.end}
+                        onChange={(e) =>
+                          updateRange(key, i, "end", e.target.value)
+                        }
+                        className="flex-1 px-2 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-pink-200 focus:border-pink-300 outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeRange(key, i)}
+                        className="p-1.5 text-gray-400 hover:text-red-500 transition-colors"
+                        aria-label="Quitar franja"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={!!r.free}
+                        onChange={(e) =>
+                          updateRange(key, i, "free", e.target.checked)
+                        }
+                        className="w-3.5 h-3.5 accent-pink-400"
+                      />
+                      Sin seña (no se cobra la reserva)
+                    </label>
                   </div>
                 ))}
               </div>

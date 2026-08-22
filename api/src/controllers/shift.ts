@@ -307,11 +307,20 @@ export class ShiftController {
 
     /** Capacidad diferenciada de adultos y niños según el modo configurado */
     const capacity = await shiftService.getCapacity(companyCode, unitBusiness);
+    /**
+     * Franjas sin seña del día. Se toman del horario semanal (no de los rangos
+     * efectivos, que vienen fusionados) y no aplican si ese día hay taller: el
+     * taller siempre se cobra.
+     */
+    const freeRanges = (await workshopService.findActiveByDate(companyCode, date))
+      ? []
+      : weeklyRanges.filter((r) => r.free);
     let reservationsAvailables: {
       availables: number;
       availablesAdults: number;
       availablesChildren: number;
       initialTime: string;
+      free: boolean;
     }[] = [];
     /** Algoritmo para obtener turnos restantes disponibles */
     for (const range of effectiveRanges) {
@@ -322,6 +331,7 @@ export class ShiftController {
           availablesAdults: capacity.adults,
           availablesChildren: capacity.children,
           initialTime: minutesToTime(countTime),
+          free: this.isInRanges(freeRanges, countTime),
         });
         countTime += durationMin;
       }
@@ -415,11 +425,23 @@ export class ShiftController {
       // El cobro es excluyente: si la reserva incluye al menos un niño se cobra
       // únicamente por los niños; si no hay niños se cobra por los adultos.
       // Los bebés nunca abonan.
-      const totalPrice =
-        childrenQty > 0
+      // Si el horario elegido cae en una franja sin seña, la reserva no abona.
+      const freeSlot =
+        !workshop && (await this.isFreeSlot(companyCode, dateStr, shift.timeStart));
+      const totalPrice = freeSlot
+        ? 0
+        : childrenQty > 0
           ? childrenQty * priceChild
           : adultsQty * priceAdult;
       shift.price = totalPrice;
+
+      // Sin monto a pagar (franja sin seña o precios en 0) la reserva no pasa
+      // por Mercado Pago: se guarda directo a confirmar y sin vencimiento, si
+      // no la liberaría releaseExpiredPending a los 15 minutos.
+      if (totalPrice <= 0) {
+        shift.status = "toConfirm";
+        shift.paymentExpiresAt = undefined;
+      }
 
       // Idempotencia: si el mismo cliente ya tiene una reserva pendingPayment
       // viva para el mismo turno, reusarla en vez de duplicar.
@@ -705,6 +727,41 @@ export class ShiftController {
       return res.status(400).json({ ack: 1, message: e.message });
     }
   };
+
+  /** True si los minutos caen dentro de alguno de los rangos [start, end). */
+  private static isInRanges(
+    ranges: { start: number; end: number }[],
+    minutes: number
+  ): boolean {
+    return ranges.some((r) => minutes >= r.start && minutes < r.end);
+  }
+
+  /**
+   * Determina si el horario (HH:mm) de una fecha cae en una franja marcada
+   * como "sin seña" en el horario semanal. Ante cualquier error se asume que
+   * la reserva sí abona, para no perder el cobro por una falla de lectura.
+   */
+  private static async isFreeSlot(
+    companyCode: string,
+    date: string,
+    timeStart: string
+  ): Promise<boolean> {
+    try {
+      if (!timeStart) return false;
+      let day = moment(date, "YYYY-MM-DD").locale("en").format("dddd");
+      day = day.charAt(0).toUpperCase() + day.slice(1);
+      const ranges = await weeklyScheduleService.getRangesForDay(
+        companyCode,
+        day
+      );
+      return this.isInRanges(
+        ranges.filter((r) => r.free),
+        this.parseTimeToMinutes(timeStart)
+      );
+    } catch (e) {
+      return false;
+    }
+  }
 
   private static parseTimeToMinutes(time: string): number {
     const timeSplit = time.split(":");

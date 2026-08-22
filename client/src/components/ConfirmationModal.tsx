@@ -22,6 +22,10 @@ export default function ConfirmationModal({
 }: informationModalProps) {
   if (!isOpen) return null;
 
+  // Si el horario elegido no lleva seña (franja sin seña o precio 0), no hay
+  // nada que transferir: se ocultan importe y datos bancarios.
+  const requiresDeposit = (shift?.price || 0) > 0;
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-8">
@@ -39,42 +43,66 @@ export default function ConfirmationModal({
 
         {/* Información de Seña */}
         <div className="space-y-4 mb-6">
-          <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-4">
-            <div className="flex items-start gap-3">
-              <AlertCircle
-                size={24}
-                className="text-blue-600 mt-0.5 flex-shrink-0"
-              />
-              <div>
-                <h3 className="font-bold text-blue-900 mb-2">
-                  ⚠️ Importante: Confirma tu Reserva
-                </h3>
-                <p className="text-sm text-blue-800 mb-3">
-                  Para confirmar tu turno, necesitas realizar una seña de{" "}
-                  <span className="font-bold">${formatPrice(priceChild)}</span>{" "}
-                  por niño.
+          {requiresDeposit ? (
+            <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-4">
+              <div className="flex items-start gap-3">
+                <AlertCircle
+                  size={24}
+                  className="text-blue-600 mt-0.5 flex-shrink-0"
+                />
+                <div>
+                  <h3 className="font-bold text-blue-900 mb-2">
+                    ⚠️ Importante: Confirma tu Reserva
+                  </h3>
+                  <p className="text-sm text-blue-800 mb-3">
+                    Para confirmar tu turno, necesitas realizar una seña de{" "}
+                    <span className="font-bold">
+                      ${formatPrice(priceChild)}
+                    </span>{" "}
+                    por niño.
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-emerald-50 border-2 border-emerald-200 rounded-xl p-4">
+              <div className="flex items-start gap-3">
+                <Check
+                  size={24}
+                  className="text-emerald-600 mt-0.5 flex-shrink-0"
+                />
+                <div>
+                  <h3 className="font-bold text-emerald-900 mb-2">
+                    Sin seña
+                  </h3>
+                  <p className="text-sm text-emerald-800">
+                    El horario que elegiste no requiere seña: no tenés que
+                    pagar ni transferir nada. Te esperamos.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+          {requiresDeposit && (
+            <div className="bg-purple-50 rounded-xl p-4">
+              <h3 className="font-semibold text-purple-900 mb-2">
+                💳 Datos para Transferencia:
+              </h3>
+              <div className="space-y-1 text-sm text-purple-800">
+                <p>
+                  <span className="font-semibold">CVU/Alias:</span>{" "}
+                  {company?.alias}
+                </p>
+                <p>
+                  <span className="font-semibold">CUIT:</span> {company?.cuit}
+                </p>
+                <p>
+                  <span className="font-semibold">Titular:</span>{" "}
+                  {company?.accountName}
                 </p>
               </div>
             </div>
-          </div>
-          <div className="bg-purple-50 rounded-xl p-4">
-            <h3 className="font-semibold text-purple-900 mb-2">
-              💳 Datos para Transferencia:
-            </h3>
-            <div className="space-y-1 text-sm text-purple-800">
-              <p>
-                <span className="font-semibold">CVU/Alias:</span>{" "}
-                {company?.alias}
-              </p>
-              <p>
-                <span className="font-semibold">CUIT:</span> {company?.cuit}
-              </p>
-              <p>
-                <span className="font-semibold">Titular:</span>{" "}
-                {company?.accountName}
-              </p>
-            </div>
-          </div>
+          )}
 
           <div className="bg-green-50 border-2 border-green-200 rounded-xl p-4">
             <div className="flex items-start gap-3">
@@ -84,13 +112,21 @@ export default function ConfirmationModal({
               />
               <div className="flex-1">
                 <h3 className="font-bold text-green-900 mb-2">
-                  📱 Envía el Comprobante
+                  {requiresDeposit
+                    ? "📱 Envía el Comprobante"
+                    : "📱 ¿Alguna duda?"}
                 </h3>
                 <p className="text-sm text-green-800 mb-3">
-                  Realiza la transferencia y envía el comprobante por WhatsApp:
+                  {requiresDeposit
+                    ? "Realiza la transferencia y envía el comprobante por WhatsApp:"
+                    : "Cualquier cambio o consulta, escribinos por WhatsApp:"}
                 </p>
                 <a
-                  href={`https://wa.me/${company?.cellphone}?text=Hola, Envío confirmación de la reserva a nombre de ${shift?.client}`}
+                  href={`https://wa.me/${company?.cellphone}?text=${
+                    requiresDeposit
+                      ? `Hola, Envío confirmación de la reserva a nombre de ${shift?.client}`
+                      : `Hola, consulto por la reserva a nombre de ${shift?.client}`
+                  }`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-3 rounded-lg font-semibold transition-all shadow-md hover:shadow-lg"

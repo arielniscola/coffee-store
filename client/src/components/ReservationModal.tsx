@@ -42,6 +42,8 @@ interface TimeSlot {
   availablesAdults: number;
   availablesChildren: number;
   initialTime: string;
+  /** Franja sin seña: la reserva de este horario no se abona. */
+  free?: boolean;
 }
 
 const initialFormData = (unitBusiness = ""): IShift => ({
@@ -249,6 +251,10 @@ export default function ReservationModal({
     (a) => a.initialTime === formData.timeStart,
   );
 
+  // Si el horario elegido es una franja sin seña, la reserva no abona nada.
+  const freeSlot = !!selectedSlot?.free;
+  const finalPrice = freeSlot ? 0 : totalPrice;
+
   const invalidOcupations =
     !!formData.timeStart && !!selectedSlot && slotInsufficient(selectedSlot);
 
@@ -269,7 +275,7 @@ export default function ReservationModal({
     e.preventDefault();
     setLoading(true);
     try {
-      const payload = { ...formData, peopleQty, price: totalPrice };
+      const payload = { ...formData, peopleQty, price: finalPrice };
       const resul = await checkoutShift(payload);
       if (resul.ack !== 0) {
         notifyError(
@@ -557,7 +563,9 @@ export default function ReservationModal({
 
               {totalPrice > 0 && (
                 <div className="bg-gradient-to-r from-pink-50 to-blue-50 border border-pink-200 rounded-lg p-3 text-center">
-                  <p className="text-xs text-gray-500 mb-0.5">Total a pagar</p>
+                  <p className="text-xs text-gray-500 mb-0.5">
+                    Total a pagar (según el horario que elijas)
+                  </p>
                   <p className="text-2xl font-bold text-pink-600">
                     ${totalPrice.toFixed(2)}
                   </p>
@@ -570,6 +578,12 @@ export default function ReservationModal({
                   ) : (
                     <p className="text-xs text-gray-500 mt-1">
                       {formData.adultsQty} adultos × ${priceAdult.toFixed(2)}
+                    </p>
+                  )}
+                  {availableSlots.some((sl) => sl.free) && (
+                    <p className="text-[11px] text-gray-400 mt-1">
+                      Ese día hay horarios sin seña: si elegís uno, no abonás
+                      nada.
                     </p>
                   )}
                 </div>
@@ -630,6 +644,11 @@ export default function ReservationModal({
                             <br />
                             {sl.availablesChildren} niños
                           </span>
+                          {sl.free && (
+                            <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 border border-emerald-200 rounded px-1 py-0.5">
+                              Sin seña
+                            </span>
+                          )}
                         </div>
                       </button>
                     );
@@ -763,7 +782,14 @@ export default function ReservationModal({
                     <strong>Taller:</strong> {workshop.title}
                   </p>
                 )}
-                {totalPrice > 0 && (
+                {freeSlot && (
+                  <div className="pt-2 mt-2 border-t border-blue-200">
+                    <p className="text-xs text-gray-600">
+                      Ese horario no requiere seña: la reserva no se abona.
+                    </p>
+                  </div>
+                )}
+                {finalPrice > 0 && (
                   <div className="pt-2 mt-2 border-t border-blue-200">
                     {chargeByChildren ? (
                       <>
@@ -781,14 +807,14 @@ export default function ReservationModal({
                     ) : (
                       <p className="text-xs text-gray-600">
                         {formData.adultsQty} adultos × ${priceAdult.toFixed(2)}{" "}
-                        = ${totalPrice.toFixed(2)}
+                        = ${finalPrice.toFixed(2)}
                       </p>
                     )}
                     {(formData.babiesQty || 0) > 0 && (
                       <p className="text-xs text-gray-600">Bebés sin cargo</p>
                     )}
                     <p className="font-bold text-base text-pink-600 mt-1">
-                      Total: ${totalPrice.toFixed(2)}
+                      Total: ${finalPrice.toFixed(2)}
                     </p>
                   </div>
                 )}
@@ -800,7 +826,7 @@ export default function ReservationModal({
                   className="text-amber-600 mt-0.5 flex-shrink-0"
                 />
                 <div className="space-y-1">
-                  {totalPrice > 0 ? (
+                  {finalPrice > 0 ? (
                     <p>
                       <strong>El pago confirma la reserva.</strong> Hasta que
                       Mercado Pago acredite el cobro, el horario no queda
@@ -872,8 +898,8 @@ export default function ReservationModal({
                     <Loader2 className="w-5 h-5 animate-spin" />
                     Procesando...
                   </>
-                ) : totalPrice > 0 ? (
-                  `Pagar $${totalPrice.toFixed(2)} con Mercado Pago`
+                ) : finalPrice > 0 ? (
+                  `Pagar ${finalPrice.toFixed(2)} con Mercado Pago`
                 ) : (
                   "Confirmar Reserva"
                 )}
