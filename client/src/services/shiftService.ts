@@ -190,6 +190,29 @@ export const getShiftPaymentStatus = async (
   return res.json();
 };
 
+/**
+ * Pide un checkout nuevo para una reserva que no llegó a pagarse. No sirve
+ * reusar el link viejo: la preferencia de Mercado Pago vence a los 15 minutos.
+ */
+export const retryShiftPayment = async (
+  shiftId: string,
+): Promise<{
+  ack: number;
+  paymentLink?: string;
+  alreadyPaid?: boolean;
+  message?: string;
+}> => {
+  const res = await fetch(`${URL_API}/shifts/${shiftId}/retry-payment`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${localStorage.getItem("token")}`,
+    },
+  });
+  if (res.status === 401) unauthorized();
+  return res.json();
+};
+
 export const getClosedDates = async (): Promise<string[]> => {
   try {
     const res = await fetch(`${URL_API}/shifts/closed-dates`, {

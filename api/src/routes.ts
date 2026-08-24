@@ -155,6 +155,13 @@ const routes = defineRoutes([
         controller: ShiftController.paymentStatus,
         auth: false,
       },
+      {
+        path: "/shifts/:id/retry-payment",
+        label: "Turnos",
+        method: "post",
+        controller: ShiftController.retryPayment,
+        auth: false,
+      },
       // Horario semanal estructurado
       {
         path: "/weekly-schedule",

@@ -306,13 +306,18 @@ export default function ReservationModal({
         return;
       }
 
-      // Si no requiere pago (precio 0) o falló MP pero la reserva quedó creada
+      // La reserva necesita seña pero no hay link de pago: no está confirmada.
+      // Se avisa y se deja el formulario abierto para reintentar, sin mostrar
+      // el modal de "¡Gracias por reservar!".
       if (resul.requiresPayment && !resul.paymentLink) {
         notifyError(
           resul.message ||
-            "Reserva creada pero no se pudo generar el link de pago. Te contactaremos.",
+            "No pudimos generar el link de pago. Probá de nuevo en unos minutos o escribinos por WhatsApp.",
         );
+        return;
       }
+
+      // A partir de acá la reserva no requiere pago: queda confirmada.
       confirmShift(payload);
       sessionStorage.removeItem(DRAFT_STORAGE_KEY);
       setPendingShiftId(undefined);

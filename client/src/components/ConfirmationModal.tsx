@@ -1,6 +1,7 @@
 import { Phone, AlertCircle, Check } from "lucide-react";
 import { IShift } from "../interfaces/shift";
 import { ICompany } from "../interfaces/company";
+import { formatLongDate } from "../utils/dates";
 
 interface informationModalProps {
   isOpen: boolean;
@@ -25,6 +26,44 @@ export default function ConfirmationModal({
   // Si el horario elegido no lleva seña (franja sin seña o precio 0), no hay
   // nada que transferir: se ocultan importe y datos bancarios.
   const requiresDeposit = (shift?.price || 0) > 0;
+
+  // Detalle discriminado de asistentes (ej. "2 adultos + 1 niño + 1 bebé").
+  // Si el turno no trae el desglose, se cae al total de personas.
+  const buildPeopleDetail = (s: IShift) => {
+    const parts: string[] = [];
+    const push = (qty: number | undefined, singular: string, plural: string) => {
+      if (qty && qty > 0) parts.push(`${qty} ${qty === 1 ? singular : plural}`);
+    };
+    push(s.adultsQty, "adulto", "adultos");
+    push(s.childrenQty, "niño", "niños");
+    push(s.babiesQty, "bebé", "bebés");
+    if (parts.length) return parts.join(" + ");
+    const total = s.peopleQty || 0;
+    return `${total} ${total === 1 ? "persona" : "personas"}`;
+  };
+
+  // Mensaje prearmado de WhatsApp con los datos de la reserva: sin seña se
+  // envía la confirmación, con seña se anuncia el comprobante.
+  const buildWhatsAppText = () => {
+    if (!shift) {
+      return requiresDeposit
+        ? "Hola, envío el comprobante de la seña de mi reserva."
+        : "Hola, envío la confirmación de mi reserva.";
+    }
+    const lines = [
+      requiresDeposit
+        ? "Hola! Envío el comprobante de la seña de mi reserva:"
+        : "Hola! Envío la confirmación de mi reserva:",
+      "",
+      `Nombre: ${shift.client}`,
+      `Fecha: ${formatLongDate(shift.date)}`,
+      `Horario: ${shift.timeStart} a ${shift.timeEnd} hs`,
+      `Asistentes: ${buildPeopleDetail(shift)}`,
+    ];
+    if (shift.phoneNumber) lines.push(`Teléfono: ${shift.phoneNumber}`);
+    if (shift.description) lines.push(`Comentarios: ${shift.description}`);
+    return lines.join("\n");
+  };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -114,19 +153,17 @@ export default function ConfirmationModal({
                 <h3 className="font-bold text-green-900 mb-2">
                   {requiresDeposit
                     ? "📱 Envía el Comprobante"
-                    : "📱 ¿Alguna duda?"}
+                    : "📱 Enviá la confirmación de tu reserva a este WhatsApp"}
                 </h3>
                 <p className="text-sm text-green-800 mb-3">
                   {requiresDeposit
                     ? "Realiza la transferencia y envía el comprobante por WhatsApp:"
-                    : "Cualquier cambio o consulta, escribinos por WhatsApp:"}
+                    : "Tocá el botón y envianos el mensaje con los datos de tu reserva:"}
                 </p>
                 <a
-                  href={`https://wa.me/${company?.cellphone}?text=${
-                    requiresDeposit
-                      ? `Hola, Envío confirmación de la reserva a nombre de ${shift?.client}`
-                      : `Hola, consulto por la reserva a nombre de ${shift?.client}`
-                  }`}
+                  href={`https://wa.me/${company?.cellphone}?text=${encodeURIComponent(
+                    buildWhatsAppText()
+                  )}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-3 rounded-lg font-semibold transition-all shadow-md hover:shadow-lg"

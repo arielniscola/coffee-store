@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import {
   getShiftPaymentStatus,
+  retryShiftPayment,
   ShiftPaymentSummary,
 } from "../services/shiftService";
 import { getConfigs } from "../services/config";
@@ -36,6 +37,8 @@ export default function PaymentResult() {
   const [state, setState] = useState<State>("loading");
   const [summary, setSummary] = useState<ShiftPaymentSummary | undefined>();
   const [refreshing, setRefreshing] = useState(false);
+  const [retrying, setRetrying] = useState(false);
+  const [retryError, setRetryError] = useState("");
   const [whatsappNumber, setWhatsappNumber] = useState<string>("");
 
   useEffect(() => {
@@ -117,9 +120,32 @@ export default function PaymentResult() {
     setRefreshing(false);
   };
 
-  const handleRetryPayment = () => {
-    if (summary?.paymentLink) {
-      window.location.href = summary.paymentLink;
+  // El link de pago guardado ya no sirve: la preferencia de Mercado Pago vence
+  // a los 15 minutos y la reserva quedó cancelada. Se pide un checkout nuevo,
+  // que además vuelve a chequear que el horario siga teniendo lugar.
+  const handleRetryPayment = async () => {
+    if (retrying) return;
+    setRetrying(true);
+    setRetryError("");
+    try {
+      const res = await retryShiftPayment(shiftId);
+      if (res.ack === 0 && res.paymentLink) {
+        window.location.href = res.paymentLink;
+        return;
+      }
+      if (res.alreadyPaid) {
+        setState("approved");
+        return;
+      }
+      setRetryError(
+        res.message || "No pudimos generar un nuevo link de pago.",
+      );
+    } catch {
+      setRetryError(
+        "No pudimos conectarnos para reintentar el pago. Probá de nuevo.",
+      );
+    } finally {
+      setRetrying(false);
     }
   };
 
@@ -184,9 +210,26 @@ export default function PaymentResult() {
     return `${total} ${total === 1 ? "persona" : "personas"}`;
   };
 
-  const approvedWhatsAppText = summary
-    ? `Hola! Confirmo mi reserva ${reservaTag} a nombre de ${summary.client || ""} para el ${formatDate(summary.date)} a las ${summary.timeStart || ""} hs (${buildPeopleDetail(summary)}). El pago ya está aprobado.`
-    : `Hola! Confirmo mi reserva ${reservaTag}. El pago ya está aprobado.`;
+  // Mensaje prearmado para mandar el comprobante. Va con los datos de la
+  // reserva así el negocio no tiene que pedirlos aparte.
+  const approvedWhatsAppText = (() => {
+    if (!summary) {
+      return `Hola! Envío el comprobante de pago de mi reserva ${reservaTag}.`;
+    }
+    const lines = [
+      `Hola! Envío el comprobante de pago de mi reserva ${reservaTag}:`,
+      "",
+      `Nombre: ${summary.client || ""}`,
+      `Fecha: ${formatDate(summary.date)}`,
+      `Horario: ${summary.timeStart || ""} hs`,
+      `Asistentes: ${buildPeopleDetail(summary)}`,
+    ];
+    if (summary.price && summary.price > 0) {
+      lines.push(`Seña abonada: $${summary.price.toLocaleString("es-AR")}`);
+    }
+    lines.push("", "(adjunto el comprobante de Mercado Pago)");
+    return lines.join("\n");
+  })();
 
   const pendingWhatsAppText = summary
     ? `Hola! Hice una reserva ${reservaTag} a nombre de ${summary.client || ""} para el ${formatDate(summary.date)} a las ${summary.timeStart || ""} hs. El pago figura como pendiente, ¿podrían confirmarlo?`
@@ -261,6 +304,21 @@ export default function PaymentResult() {
               </div>
             )}
 
+            {state === "approved" && whatsappNumber && (
+              <div className="px-6 pt-4">
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <h2 className="font-semibold text-green-900 text-sm mb-1">
+                    📱 Enviános el comprobante
+                  </h2>
+                  <p className="text-sm text-green-800">
+                    Mandanos el comprobante de Mercado Pago por WhatsApp y
+                    dejamos tu reserva lista. El mensaje ya va con los datos
+                    cargados: solo adjuntá la captura del pago.
+                  </p>
+                </div>
+              </div>
+            )}
+
             <div className="p-6 flex flex-col gap-2">
               {state === "approved" && whatsappNumber && (
                 <a
@@ -270,7 +328,7 @@ export default function PaymentResult() {
                   className="inline-flex items-center justify-center gap-2 bg-green-500 hover:bg-green-600 text-white px-5 py-2.5 rounded-lg font-semibold transition-colors shadow-md"
                 >
                   <MessageCircle className="w-4 h-4" />
-                  Confirmar por WhatsApp
+                  Enviar comprobante por WhatsApp
                 </a>
               )}
 
@@ -301,20 +359,31 @@ export default function PaymentResult() {
                 </a>
               )}
 
-              {state === "rejected" && summary?.paymentLink && (
+              {state === "rejected" && (
                 <button
                   onClick={handleRetryPayment}
-                  className="inline-flex items-center justify-center gap-2 bg-gradient-to-r from-pink-400 to-blue-400 text-white px-5 py-2.5 rounded-lg font-semibold hover:from-pink-300 hover:to-blue-300 transition-all shadow-md"
+                  disabled={retrying}
+                  className="inline-flex items-center justify-center gap-2 bg-gradient-to-r from-pink-400 to-blue-400 text-white px-5 py-2.5 rounded-lg font-semibold hover:from-pink-300 hover:to-blue-300 transition-all shadow-md disabled:opacity-60"
                 >
-                  <CreditCard className="w-4 h-4" />
-                  Reintentar pago
+                  {retrying ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <CreditCard className="w-4 h-4" />
+                  )}
+                  {retrying ? "Generando link..." : "Reintentar pago"}
                 </button>
+              )}
+
+              {retryError && (
+                <p className="w-full text-sm text-red-600 text-center">
+                  {retryError}
+                </p>
               )}
 
               <Link
                 to="/reservas"
                 className={`inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg font-semibold transition-all ${
-                  state === "rejected" && summary?.paymentLink
+                  state === "rejected"
                     ? "bg-gray-100 hover:bg-gray-200 text-gray-700"
                     : "bg-gradient-to-r from-pink-400 to-blue-400 text-white hover:from-pink-300 hover:to-blue-300 shadow-md"
                 }`}

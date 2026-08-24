@@ -494,14 +494,19 @@ export class ShiftController {
       });
 
       if (!pref) {
-        // Si MP falla, mantener la reserva pero avisar
-        return res.status(200).json({
-          ack: 0,
+        // Sin link de pago la reserva no se puede completar: se cancela para
+        // liberar el cupo enseguida (si no, lo bloquea 15 minutos y además
+        // impide que el propio cliente reintente) y se responde como error,
+        // así el front no muestra la reserva como confirmada.
+        await shiftService.updateOne(
+          { _id: created._id },
+          { status: "cancelled", paymentStatus: "preference_failed" },
+        );
+        return res.status(400).json({
+          ack: 1,
           shiftId: String(created._id),
-          requiresPayment: true,
-          paymentLink: null,
           message:
-            "Reserva creada, pero no se pudo generar link de pago. Contactar al negocio.",
+            "No pudimos generar el link de pago. Por favor probá de nuevo en unos minutos o escribinos por WhatsApp.",
         });
       }
 
@@ -610,6 +615,112 @@ export class ShiftController {
         paymentStatus: newPaymentStatus,
         paidAt: update.paidAt,
         shift: summary,
+      });
+    } catch (e) {
+      logger.error(e);
+      return res.status(400).json({ ack: 1, message: e.message });
+    }
+  };
+
+  /**
+   * Genera un checkout nuevo para una reserva que no llegó a pagarse (pago
+   * rechazado o vencimiento de los 15 minutos). La preferencia anterior no
+   * sirve: nace con `expires` a 15 minutos, así que reintentar siempre exige
+   * crear una nueva y volver a tomar el cupo.
+   */
+  static retryPayment: IRouteController<{ id: string }> = async (req, res) => {
+    const logger = new Log(
+      res.locals.requestId,
+      "ShiftController.retryPayment",
+    );
+    try {
+      const companyCode = res.locals.companyCode || "wichiwi";
+      const id = req.params.id;
+      if (!shiftService.validateId(id)) throw new Error("ID inválido");
+
+      const shift = await shiftService.findOne({ _id: id });
+      if (!shift) throw new Error("Reserva no encontrada");
+
+      // Ya está paga: no hay nada que reintentar.
+      if (shift.status === "paid" || shift.status === "confirmed") {
+        return res.status(200).json({
+          ack: 0,
+          alreadyPaid: true,
+          message: "La reserva ya figura como pagada.",
+        });
+      }
+      if (!shift.price || shift.price <= 0) {
+        throw new Error("Esta reserva no requiere seña.");
+      }
+
+      const dateStr = moment(shift.date).utc().format("YYYY-MM-DD");
+      if (dateStr < moment().format("YYYY-MM-DD")) {
+        throw new Error(
+          "La fecha de la reserva ya pasó. Por favor hacé una reserva nueva.",
+        );
+      }
+      if (await this.isDateClosed(companyCode, dateStr)) {
+        throw new Error("El local está cerrado en la fecha de la reserva.");
+      }
+
+      // Liberar vencidas primero, para no medir el cupo contra reservas muertas.
+      await shiftService.releaseExpiredPending(companyCode);
+
+      // Entre el rechazo y el reintento el cupo pudo haberse ocupado. Se
+      // revalida excluyendo esta misma reserva.
+      const hasRoom = await shiftService.validatedShift({
+        _id: id,
+        companyCode,
+        date: shift.date,
+        timeStart: shift.timeStart,
+        unitBusiness: shift.unitBusiness,
+        adultsQty: shift.adultsQty,
+        childrenQty: shift.childrenQty,
+      });
+      if (!hasRoom) {
+        throw new Error(
+          "Ese horario ya no tiene lugar disponible. Elegí otro horario.",
+        );
+      }
+
+      const expiresAt = moment().add(15, "minutes").toDate();
+      const workshop = await workshopService.findActiveByDate(
+        companyCode,
+        dateStr,
+      );
+      const pref = await mercadoPagoService.createPreference({
+        shiftId: id,
+        companyCode,
+        title: workshop
+          ? `Taller "${workshop.title}" ${moment(shift.date).utc().format("DD/MM/YYYY")} ${shift.timeStart}`
+          : `Reserva ${moment(shift.date).utc().format("DD/MM/YYYY")} ${shift.timeStart}`,
+        unitPrice: shift.price,
+        quantity: 1,
+        payerEmail: shift.email,
+        expirationDate: expiresAt.toISOString(),
+      });
+      if (!pref) {
+        throw new Error(
+          "No pudimos generar el link de pago. Probá de nuevo en unos minutos.",
+        );
+      }
+
+      // La reserva vuelve a tomar el cupo por otros 15 minutos.
+      await shiftService.updateOne(
+        { _id: id },
+        {
+          status: "pendingPayment",
+          paymentExpiresAt: expiresAt,
+          preferenceId: pref.preferenceId,
+          paymentLink: pref.initPoint,
+          paymentStatus: "pending",
+        },
+      );
+
+      return res.status(200).json({
+        ack: 0,
+        shiftId: id,
+        paymentLink: pref.initPoint,
       });
     } catch (e) {
       logger.error(e);
