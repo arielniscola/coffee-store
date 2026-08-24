@@ -92,14 +92,9 @@ export class ShiftController {
       }
       /** Calculamos el tiempo de finalizacion */
 
-      const shiftDuration = (
-        await configService.findOne({
-          code: "durationShift",
-          companyCode: companyCode,
-        })
-      ).value as string;
+      const shiftDuration = await this.requireShiftDurationMinutes(companyCode);
       const initTime = this.parseTimeToMinutes(shift.timeStart);
-      let endTime = initTime + parseInt(shiftDuration);
+      let endTime = initTime + shiftDuration;
       let endtimeString = this.parseMinutesToTime(endTime);
       shift.timeEnd = endtimeString;
 
@@ -134,14 +129,9 @@ export class ShiftController {
       if (!exist) throw new Error("Turno no encontrado");
       /** Calculamos el tiempo de finalizacion */
 
-      const shiftDuration = (
-        await configService.findOne({
-          code: "durationShift",
-          companyCode: companyCode,
-        })
-      ).value as string;
+      const shiftDuration = await this.requireShiftDurationMinutes(companyCode);
       const initTime = this.parseTimeToMinutes(shiftUpdate.timeStart);
-      let endTime = initTime + parseInt(shiftDuration);
+      let endTime = initTime + shiftDuration;
       let endtimeString = this.parseMinutesToTime(endTime);
       shiftUpdate.timeEnd = endtimeString;
 
@@ -238,6 +228,11 @@ export class ShiftController {
       const date = req.query.date
         ? req.query.date
         : moment().format("YYYY-MM-DD");
+      // Liberar las reservas pendientes vencidas antes de medir la ocupación.
+      // Sin esto, un checkout abandonado retiene el cupo indefinidamente: el
+      // horario se ve lleno, el cliente no puede avanzar y por lo tanto nunca
+      // llega a /shifts/checkout, que era el único punto que las liberaba.
+      await shiftService.releaseExpiredPending(companyCode);
       // Si el local está cerrado ese día, no hay horarios disponibles.
       if (await this.isDateClosed(companyCode, date)) {
         return res.status(200).json({ ack: 0, data: [] });
@@ -247,6 +242,13 @@ export class ShiftController {
       const filter = {
         ...{ companyCode: companyCode },
         ...{ status: { $ne: "cancelled" } },
+        // Defensa en profundidad: aunque la liberación de arriba no haya
+        // corrido, una pendingPayment ya vencida no debe ocupar lugares.
+        ...{
+          $nor: [
+            { status: "pendingPayment", paymentExpiresAt: { $lt: new Date() } },
+          ],
+        },
         ...(req.query.unitBusiness
           ? { unitBusiness: req.query.unitBusiness }
           : {}),
@@ -281,11 +283,7 @@ export class ShiftController {
     let day = moment(date).locale("en").format("dddd");
     day = day.charAt(0).toUpperCase() + day.slice(1);
     /** Duración del turno (por compañía) */
-    const durationConfig = await configService.findOne({
-      code: "durationShift",
-      companyCode,
-    });
-    const durationMin = parseInt((durationConfig?.value as string) || "0");
+    const durationMin = await this.getShiftDurationMinutes(companyCode);
     // Sin duración configurada no hay forma de generar slots.
     if (!durationMin) return [];
     /**
@@ -386,16 +384,9 @@ export class ShiftController {
       if (typeof shift.date === "string") {
         shift.date = moment(shift.date, "YYYY-MM-DD").utc(true).toDate();
       }
-      const shiftDuration = (
-        await configService.findOne({
-          code: "durationShift",
-          companyCode,
-        })
-      ).value as string;
+      const shiftDuration = await this.requireShiftDurationMinutes(companyCode);
       const initTime = this.parseTimeToMinutes(shift.timeStart);
-      shift.timeEnd = this.parseMinutesToTime(
-        initTime + parseInt(shiftDuration),
-      );
+      shift.timeEnd = this.parseMinutesToTime(initTime + shiftDuration);
 
       const expiresAt = moment().add(15, "minutes").toDate();
       shift.paymentExpiresAt = expiresAt;
@@ -872,6 +863,43 @@ export class ShiftController {
     } catch (e) {
       return false;
     }
+  }
+
+  /**
+   * Duración del turno en minutos (config `durationShift`). Devuelve 0 si el
+   * config no existe o no es un número positivo, para que cada caller decida
+   * qué hacer: generar cero slots o cortar con un error explícito.
+   */
+  private static async getShiftDurationMinutes(
+    companyCode: string
+  ): Promise<number> {
+    try {
+      const cfg = await configService.findOne({
+        code: "durationShift",
+        companyCode,
+      });
+      const n = parseInt(String(cfg?.value ?? ""), 10);
+      return Number.isNaN(n) || n <= 0 ? 0 : n;
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  /**
+   * Igual que getShiftDurationMinutes, pero lanza un error entendible en vez
+   * de dejar reventar un `null.value` con un TypeError que termina llegando al
+   * cliente como mensaje de la reserva fallida.
+   */
+  private static async requireShiftDurationMinutes(
+    companyCode: string
+  ): Promise<number> {
+    const duration = await this.getShiftDurationMinutes(companyCode);
+    if (!duration) {
+      throw new Error(
+        "La duración del turno no está configurada. Por favor escribinos por WhatsApp para completar la reserva."
+      );
+    }
+    return duration;
   }
 
   private static parseTimeToMinutes(time: string): number {

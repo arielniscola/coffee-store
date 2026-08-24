@@ -99,6 +99,14 @@ export const mercadoPagoService = {
               expiration_date_to: input.expirationDate,
             }
           : {}),
+        // Solo medios de pago instantáneos. La reserva aparta el lugar 15
+        // minutos y la preferencia vence en ese mismo plazo, así que un cupón
+        // de efectivo (Pago Fácil / Rapipago) o un pago por cajero no pueden
+        // acreditarse a tiempo: el cliente se iba con el cupón, el pago
+        // quedaba "pending" y la reserva se cancelaba sola.
+        payment_methods: {
+          excluded_payment_types: [{ id: "ticket" }, { id: "atm" }],
+        },
         binary_mode: true,
       },
     });
