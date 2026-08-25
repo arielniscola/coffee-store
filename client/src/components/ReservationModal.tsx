@@ -11,7 +11,7 @@ import {
   Info,
   Palette,
 } from "lucide-react";
-import { useState, FormEvent, useEffect, useMemo } from "react";
+import { useState, FormEvent, useEffect, useMemo, useRef } from "react";
 import {
   checkoutShift,
   getAvailableShifts,
@@ -63,6 +63,36 @@ const initialFormData = (unitBusiness = ""): IShift => ({
 });
 
 const DRAFT_STORAGE_KEY = "reservationDraft";
+
+// Definido fuera del componente a propósito: como función anidada, React lo veía
+// como un tipo distinto en cada render y desmontaba/remontaba sus nodos con cada
+// tecla del formulario.
+function Stepper({ step }: { step: 1 | 2 | 3 }) {
+  return (
+    <div className="flex items-center justify-center gap-2 px-6 py-4 border-b border-gray-100">
+      {[1, 2, 3].map((s) => (
+        <div key={s} className="flex items-center gap-2">
+          <div
+            className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold transition-all ${
+              step === s
+                ? "bg-pink-400 text-white shadow-md"
+                : step > s
+                  ? "bg-blue-400 text-white"
+                  : "bg-gray-200 text-gray-500"
+            }`}
+          >
+            {s}
+          </div>
+          {s < 3 && (
+            <div
+              className={`w-8 h-0.5 ${step > s ? "bg-blue-400" : "bg-gray-200"}`}
+            />
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
 
 interface ReservationDraft {
   formData: IShift;
@@ -125,6 +155,9 @@ export default function ReservationModal({
   const [closedDates, setClosedDates] = useState<string[]>([]);
   const [slotTakenWarning, setSlotTakenWarning] = useState<string>("");
   const [revalidating, setRevalidating] = useState(false);
+  // Fecha con la que se cargaron los horarios actuales, para distinguir un
+  // cambio de fecha real de una simple reapertura del modal.
+  const fetchedDateRef = useRef<string | null>(null);
 
   useEffect(() => {
     const loadUB = async () => {
@@ -226,8 +259,32 @@ export default function ReservationModal({
       try {
         setLoadingSlots(true);
         const reservations = await getAvailableShifts(formData.date);
-        setAvailableSlots(Array.isArray(reservations) ? reservations : []);
-        setFormData((prev) => ({ ...prev, timeStart: "" }));
+        const list: TimeSlot[] = Array.isArray(reservations)
+          ? reservations
+          : [];
+        setAvailableSlots(list);
+
+        // Al cambiar de fecha el horario elegido deja de tener sentido: se
+        // limpia sin avisar, porque el usuario todavía está en el paso 1.
+        const dateChanged =
+          fetchedDateRef.current !== null &&
+          fetchedDateRef.current !== formData.date;
+        fetchedDateRef.current = formData.date;
+        if (dateChanged) {
+          setFormData((prev) => ({ ...prev, timeStart: "" }));
+          setSlotTakenWarning("");
+          return;
+        }
+
+        // Misma fecha (apertura del modal o borrador restaurado tras volver de
+        // Mercado Pago): hay que conservar el horario elegido. Antes se limpiaba
+        // siempre, y un borrador en paso 3 quedaba con la reserva sin horario
+        // pero con el botón de pago habilitado.
+        setFormData((prev) => {
+          if (!prev.timeStart) return prev;
+          if (list.some((s) => s.initialTime === prev.timeStart)) return prev;
+          return { ...prev, timeStart: "" };
+        });
       } catch (error) {
         console.error("Error fetching reservas disponibles:", error);
       } finally {
@@ -236,6 +293,16 @@ export default function ReservationModal({
     };
     fetchAvailables();
   }, [formData.date, isOpen]);
+
+  // Si el horario quedó vacío no se puede seguir en el paso 3: se vuelve al
+  // paso 2 para que el usuario elija otro.
+  useEffect(() => {
+    if (!isOpen || step !== 3 || formData.timeStart) return;
+    setStep(2);
+    setSlotTakenWarning(
+      "El horario que habías elegido ya no está disponible. Elegí otro.",
+    );
+  }, [isOpen, step, formData.timeStart]);
 
   if (!isOpen) return null;
 
@@ -375,31 +442,6 @@ export default function ReservationModal({
     }
   };
 
-  const Stepper = () => (
-    <div className="flex items-center justify-center gap-2 px-6 py-4 border-b border-gray-100">
-      {[1, 2, 3].map((s) => (
-        <div key={s} className="flex items-center gap-2">
-          <div
-            className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold transition-all ${
-              step === s
-                ? "bg-pink-400 text-white shadow-md"
-                : step > s
-                  ? "bg-blue-400 text-white"
-                  : "bg-gray-200 text-gray-500"
-            }`}
-          >
-            {s}
-          </div>
-          {s < 3 && (
-            <div
-              className={`w-8 h-0.5 ${step > s ? "bg-blue-400" : "bg-gray-200"}`}
-            />
-          )}
-        </div>
-      ))}
-    </div>
-  );
-
   return (
     <div
       translate="no"
@@ -418,7 +460,7 @@ export default function ReservationModal({
           </button>
         </div>
 
-        <Stepper />
+        <Stepper step={step} />
 
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           {step === 1 && (
@@ -898,7 +940,7 @@ export default function ReservationModal({
             {step === 3 && (
               <button
                 type="submit"
-                disabled={loading || invalidOcupations}
+                disabled={loading || invalidOcupations || !formData.timeStart}
                 className="flex-1 inline-flex items-center justify-center gap-2 bg-gradient-to-r from-pink-400 to-blue-400 text-white py-3 rounded-lg font-bold hover:from-pink-300 hover:to-blue-300 transition-all transform hover:scale-[1.02] shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
               >
                 {loading ? (
