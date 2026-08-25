@@ -16,11 +16,13 @@ import ClosedDates from "../pages/closedDates/ClosedDates";
 import Workshops from "../pages/workshops/Workshops";
 import PaymentResult from "../pages/PaymentResult";
 import MpPayments from "../pages/payments/MpPayments";
+import ErrorPage from "./ErrorPage";
 
 export const router = createBrowserRouter([
   {
     path: "/",
     element: <App />,
+    errorElement: <ErrorPage />,
     children: [
       { path: "reservas", element: <LandingPage /> },
       { path: "payment-result", element: <PaymentResult /> },

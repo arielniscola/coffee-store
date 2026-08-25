@@ -46,7 +46,10 @@ export default function InformationModal({
     setFormOpen(true);
   };
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div
+      translate="no"
+      className="notranslate fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+    >
       <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-gradient-to-r from-pink-300 to-blue-300 text-white p-6 mb-6 rounded-t-2xl flex items-center justify-between">
           <div className="w-16 h-16 bg-white-100 rounded-full flex items-center justify-center mx-auto m-4">

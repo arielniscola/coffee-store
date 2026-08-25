@@ -1,9 +1,12 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/src/images/wichiwi-logo.jpg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- El sitio ya esta en espanol: evita que Chrome lo auto-traduzca y
+         reescriba el DOM por debajo de React (NotFoundError removeChild). -->
+    <meta name="google" content="notranslate" />
     <title>Gestion de Reservas</title>
   </head>
   <body>

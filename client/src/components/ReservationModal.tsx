@@ -401,7 +401,10 @@ export default function ReservationModal({
   );
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div
+      translate="no"
+      className="notranslate fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+    >
       <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[95vh] overflow-y-auto">
         <div className="sticky top-0 bg-gradient-to-r from-pink-300 to-blue-300 text-white p-6 rounded-t-2xl flex items-center justify-between z-10">
           <h2 className="text-2xl font-bold">Reservar Mesa</h2>

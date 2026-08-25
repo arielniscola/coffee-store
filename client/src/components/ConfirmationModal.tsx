@@ -66,7 +66,10 @@ export default function ConfirmationModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+    <div
+      translate="no"
+      className="notranslate fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+    >
       <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-8">
         <div className="text-center mb-6">
           <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
