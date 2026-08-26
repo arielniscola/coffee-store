@@ -552,7 +552,10 @@ export default function ReservationModal({
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Niños
+                    Niños{" "}
+                    <span className="text-xs font-normal text-gray-500">
+                      (1 a 6 años)
+                    </span>
                   </label>
                   <div className="relative">
                     <Users
@@ -577,7 +580,10 @@ export default function ReservationModal({
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Bebés
+                    Bebés{" "}
+                    <span className="text-xs font-normal text-gray-500">
+                      (0 a 11 meses)
+                    </span>
                   </label>
                   <div className="relative">
                     <Users
