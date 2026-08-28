@@ -82,6 +82,25 @@ const buildPeopleDetail = (shift: IShift): string => {
   return `${total} ${total === 1 ? "persona" : "personas"}`;
 };
 
+// Mensaje prearmado para mandar el comprobante por WhatsApp. Es el mismo que
+// arma la pantalla de resultado de pago (PaymentResult), así el negocio recibe
+// siempre el mismo formato con los datos de la reserva ya cargados.
+const buildReceiptWhatsAppText = (shift: IShift, reservaTag: string): string => {
+  const lines = [
+    `Hola! Envío el comprobante de pago de mi reserva${reservaTag ? ` #${reservaTag}` : ""}:`,
+    "",
+    `Nombre: ${shift.client || ""}`,
+    `Fecha: ${formatDate(shift.date)}`,
+    `Horario: ${shift.timeStart || ""} hs`,
+    `Asistentes: ${buildPeopleDetail(shift)}`,
+  ];
+  if (shift.price && shift.price > 0) {
+    lines.push(`Seña abonada: $${shift.price.toLocaleString("es-AR")}`);
+  }
+  lines.push("", "(adjunto el comprobante de Mercado Pago)");
+  return lines.join("\n");
+};
+
 const buildConfirmationHtml = (
   shift: IShift,
   companyName: string,
@@ -94,9 +113,23 @@ const buildConfirmationHtml = (
   const waLink = whatsappNumber
     ? `https://wa.me/${whatsappNumber}?text=${waMessage}`
     : "";
+  const receiptLink = whatsappNumber
+    ? `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(
+        buildReceiptWhatsAppText(shift, reservaTag),
+      )}`
+    : "";
   const modifyText = waLink
     ? `Si necesitás modificar tu reserva, <a href="${waLink}" style="color:#16a34a;font-weight:600;text-decoration:none;">contactanos por WhatsApp</a>.`
     : "Si necesitás modificar tu reserva, contactanos por WhatsApp.";
+  // Bloque para pedir el comprobante: el link ya lleva el mensaje armado con
+  // los datos de la reserva, el cliente solo adjunta la captura del pago.
+  const receiptBlock = receiptLink
+    ? `<div style="margin:20px 0 0;padding:16px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;">
+        <p style="margin:0 0 6px;font-size:14px;font-weight:700;color:#166534;">📱 Enviános el comprobante</p>
+        <p style="margin:0 0 14px;font-size:13px;color:#15803d;">Mandanos el comprobante de Mercado Pago por WhatsApp y dejamos tu reserva lista. El mensaje ya va con los datos cargados: solo adjuntá la captura del pago.</p>
+        <a href="${receiptLink}" style="display:inline-block;background:#22c55e;color:#ffffff;font-size:14px;font-weight:600;text-decoration:none;padding:10px 18px;border-radius:8px;">Enviar comprobante por WhatsApp</a>
+      </div>`
+    : `<p style="margin:20px 0 0;font-size:13px;color:#6b7280;">Por favor enviános el comprobante de Mercado Pago por WhatsApp para dejar tu reserva lista.</p>`;
   const peopleDetail = buildPeopleDetail(shift);
   const priceRow =
     shift.price && shift.price > 0
@@ -117,6 +150,7 @@ const buildConfirmationHtml = (
         <tr><td style="padding:6px 0;color:#6b7280;">Personas</td><td style="padding:6px 0;text-align:right;">${peopleDetail}</td></tr>
         ${priceRow}
       </table>
+      ${receiptBlock}
       <p style="margin:24px 0 0;font-size:13px;color:#6b7280;text-align:center;">¡Te esperamos! ${modifyText}</p>
     </div>
     ${companyName ? `<div style="padding:16px;background:#f9fafb;text-align:center;font-size:12px;color:#9ca3af;">${companyName}</div>` : ""}
