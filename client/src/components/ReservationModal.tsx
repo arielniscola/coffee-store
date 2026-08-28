@@ -27,6 +27,11 @@ import { IConfig } from "../interfaces/config";
 import DatePickerWithClosed from "./DatePickerWithClosed";
 import { getUpcomingWorkshops } from "../services/workshopService";
 import { IWorkshop } from "../interfaces/workshop";
+import {
+  clearReservationDraft,
+  readReservationDraft,
+  writeReservationDraft,
+} from "../utils/reservationDraft";
 
 const notifyError = (msg: string) => toast.error(msg);
 
@@ -62,8 +67,6 @@ const initialFormData = (unitBusiness = ""): IShift => ({
   babiesQty: 0,
 });
 
-const DRAFT_STORAGE_KEY = "reservationDraft";
-
 // Definido fuera del componente a propósito: como función anidada, React lo veía
 // como un tipo distinto en cada render y desmontaba/remontaba sus nodos con cada
 // tecla del formulario.
@@ -94,55 +97,20 @@ function Stepper({ step }: { step: 1 | 2 | 3 }) {
   );
 }
 
-interface ReservationDraft {
-  formData: IShift;
-  step: 1 | 2 | 3;
-  shiftId?: string;
-}
-
 export default function ReservationModal({
   isOpen,
   onClose,
   setConfirmOpen,
   confirmShift,
 }: ReservationModalProps) {
-  const [formData, setFormData] = useState<IShift>(() => {
-    try {
-      const raw = sessionStorage.getItem(DRAFT_STORAGE_KEY);
-      if (raw) {
-        const draft: ReservationDraft = JSON.parse(raw);
-        if (draft?.formData) return draft.formData;
-      }
-    } catch {
-      /* ignore */
-    }
-    return initialFormData();
-  });
-  const [step, setStep] = useState<1 | 2 | 3>(() => {
-    try {
-      const raw = sessionStorage.getItem(DRAFT_STORAGE_KEY);
-      if (raw) {
-        const draft: ReservationDraft = JSON.parse(raw);
-        if (draft?.step) return draft.step;
-      }
-    } catch {
-      /* ignore */
-    }
-    return 1;
-  });
+  const [formData, setFormData] = useState<IShift>(
+    () => readReservationDraft()?.formData || initialFormData(),
+  );
+  const [step, setStep] = useState<1 | 2 | 3>(
+    () => readReservationDraft()?.step || 1,
+  );
   const [pendingShiftId, setPendingShiftId] = useState<string | undefined>(
-    () => {
-      try {
-        const raw = sessionStorage.getItem(DRAFT_STORAGE_KEY);
-        if (raw) {
-          const draft: ReservationDraft = JSON.parse(raw);
-          return draft?.shiftId;
-        }
-      } catch {
-        /* ignore */
-      }
-      return undefined;
-    },
+    () => readReservationDraft()?.shiftId,
   );
   const [loading, setLoading] = useState(false);
   const [loadingSlots, setLoadingSlots] = useState(false);
@@ -210,16 +178,7 @@ export default function ReservationModal({
 
   // Persistir el borrador para sobrevivir un redirect a Mercado Pago.
   useEffect(() => {
-    try {
-      const draft: ReservationDraft = {
-        formData,
-        step,
-        shiftId: pendingShiftId,
-      };
-      sessionStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft));
-    } catch {
-      /* ignore quota errors */
-    }
+    writeReservationDraft({ formData, step, shiftId: pendingShiftId });
   }, [formData, step, pendingShiftId]);
 
   // Si la fecha elegida tiene taller, el precio por niño lo define el taller.
@@ -355,16 +314,7 @@ export default function ReservationModal({
       // Guardar el shiftId en el borrador antes de redirigir a MP.
       if (resul.shiftId) {
         setPendingShiftId(resul.shiftId);
-        try {
-          const draft: ReservationDraft = {
-            formData,
-            step,
-            shiftId: resul.shiftId,
-          };
-          sessionStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft));
-        } catch {
-          /* ignore */
-        }
+        writeReservationDraft({ formData, step, shiftId: resul.shiftId });
       }
 
       // Si requiere pago y MP devolvió link, redirigir
@@ -386,7 +336,7 @@ export default function ReservationModal({
 
       // A partir de acá la reserva no requiere pago: queda confirmada.
       confirmShift(payload);
-      sessionStorage.removeItem(DRAFT_STORAGE_KEY);
+      clearReservationDraft();
       setPendingShiftId(undefined);
       setFormData(initialFormData(unitBusinessCode));
       setStep(1);
@@ -402,7 +352,7 @@ export default function ReservationModal({
 
   const handleClose = () => {
     if (loading) return;
-    sessionStorage.removeItem(DRAFT_STORAGE_KEY);
+    clearReservationDraft();
     setPendingShiftId(undefined);
     setFormData(initialFormData(unitBusinessCode));
     setStep(1);

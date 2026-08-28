@@ -34,6 +34,11 @@ import {
   parseScheduleText,
   ScheduleTextGroup,
 } from "../../utils/scheduleText";
+import { useNavigate } from "react-router-dom";
+import {
+  clearPendingShiftId,
+  readReservationDraft,
+} from "../../utils/reservationDraft";
 
 // Franjas de un día -> "09:00 - 18:00 · 20:00 - 23:00". Vacío -> "Cerrado".
 function formatRanges(ranges: ITimeRange[]): string {
@@ -74,6 +79,20 @@ function LandingPage() {
   const [scheduleText, setScheduleText] = useState<string>("");
   const [scheduleSubtitle, setScheduleSubtitle] = useState<string>("");
   const [policiesText, setPoliciesText] = useState<string>("");
+
+  const navigate = useNavigate();
+
+  // Volver de Mercado Pago no siempre pasa por /payment-result: si el pago se
+  // hizo en la app de MP, o el usuario vuelve con el botón atrás en vez de
+  // "Volver al sitio", cae acá y parece que la reserva nunca se hizo. Si el
+  // borrador todavía tiene un pago sin resolver, lo mandamos al resultado.
+  // Soltamos el shiftId antes de navegar para redirigir una sola vez.
+  useEffect(() => {
+    const pendingShiftId = readReservationDraft()?.shiftId;
+    if (!pendingShiftId) return;
+    clearPendingShiftId();
+    navigate(`/payment-result?shiftId=${pendingShiftId}`, { replace: true });
+  }, [navigate]);
 
   useEffect(() => {
     loadProfile();

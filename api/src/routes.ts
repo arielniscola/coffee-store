@@ -273,6 +273,15 @@ const routes = defineRoutes([
         auth: false,
       },
       {
+        // Disparada por un cron externo. Sin login: se valida CRON_SECRET
+        // contra el header Authorization dentro del controlador.
+        path: "/payments/reconcile",
+        label: "Pagos",
+        method: "get",
+        controller: PaymentsController.reconcile,
+        auth: false,
+      },
+      {
         path: "/shifts/:id/link-payment",
         label: "Pagos",
         method: "post",

@@ -4,6 +4,7 @@ import { IShift } from "../models/shift";
 import { mercadoPagoService } from "../services/mercadopago";
 import { shiftService } from "../services/shift";
 import { sendShiftConfirmationEmailOnce } from "../services/email";
+import { paymentReconciler } from "../services/paymentReconciler";
 
 export class PaymentsController {
   /**
@@ -93,6 +94,50 @@ export class PaymentsController {
       }
     } catch (e) {
       logger.error(e, "Error procesando webhook MP");
+    }
+  };
+
+  /**
+   * Corrida del reconciliador de pagos. La dispara un cron externo
+   * (cron-job.org): en Vercel la instancia se congela entre requests, así que
+   * el setInterval del proceso no corre y esta es la única red de seguridad
+   * cuando el webhook de MP no llega.
+   *
+   * No usa el login de la app (no hay usuario detrás): se autentica con
+   * CRON_SECRET, que el cron manda como header
+   * `Authorization: Bearer <secret>`. Sin la variable seteada en el entorno,
+   * el endpoint queda cerrado.
+   */
+  static reconcile: IRouteController<
+    {},
+    {},
+    {},
+    { limit?: string; maxMs?: string }
+  > = async (req, res) => {
+    const logger = new Log(
+      res.locals.requestId,
+      "PaymentsController.reconcile",
+    );
+    const secret = process.env.CRON_SECRET;
+    if (!secret) {
+      logger.error(null, "CRON_SECRET no configurado: reconciliador cerrado");
+      return res.status(503).json({ ack: 1, message: "Cron no configurado" });
+    }
+    const auth = req.headers.authorization || "";
+    if (auth !== `Bearer ${secret}`) {
+      return res.status(401).json({ ack: 1, message: "No autorizado" });
+    }
+
+    try {
+      const result = await paymentReconciler.runNow({
+        limit: req.query.limit ? parseInt(req.query.limit) : undefined,
+        maxDurationMs: req.query.maxMs ? parseInt(req.query.maxMs) : undefined,
+      });
+      logger.info(`Reconciliación: ${JSON.stringify(result)}`);
+      return res.status(200).json({ ack: 0, data: result });
+    } catch (e) {
+      logger.error(e, "Error corriendo el reconciliador");
+      return res.status(500).json({ ack: 1, message: e.message });
     }
   };
 

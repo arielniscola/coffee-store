@@ -28,9 +28,13 @@ const CONFIGS = defineOptions({
   await coffeeshop.init();
   // Crear configs faltantes en cada deploy (idempotente).
   await ensureDefaultConfigs();
-  // Red de seguridad por si falla el webhook de Mercado Pago.
-  const reconcileMs = process.env.MP_RECONCILE_INTERVAL_MS
-    ? parseInt(process.env.MP_RECONCILE_INTERVAL_MS)
-    : 5 * 60 * 1000;
-  paymentReconciler.start(reconcileMs);
+  // Red de seguridad por si falla el webhook de Mercado Pago. En Vercel la
+  // instancia se congela entre requests y el setInterval nunca corre: allá el
+  // disparador es un cron externo contra GET /payments/reconcile.
+  if (!process.env.VERCEL) {
+    const reconcileMs = process.env.MP_RECONCILE_INTERVAL_MS
+      ? parseInt(process.env.MP_RECONCILE_INTERVAL_MS)
+      : 5 * 60 * 1000;
+    paymentReconciler.start(reconcileMs);
+  }
 })();

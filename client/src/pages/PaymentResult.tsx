@@ -20,6 +20,10 @@ import {
 import { getConfigs } from "../services/config";
 import { IConfig } from "../interfaces/config";
 import { formatShortDate } from "../utils/dates";
+import {
+  clearPendingShiftId,
+  clearReservationDraft,
+} from "../utils/reservationDraft";
 
 type State = "loading" | "approved" | "pending" | "rejected" | "unknown";
 
@@ -30,7 +34,17 @@ const POLL_DELAYS_SEC = [3, 5, 8, 13, 21, 30, 30, 30, 30, 30];
 export default function PaymentResult() {
   const [params] = useSearchParams();
   const shiftId = params.get("shiftId") || "";
-  const mpStatusParam = params.get("status") || "";
+  // MP no siempre manda el mismo parámetro: según el flujo devuelve "status"
+  // o "collection_status", y en algunos retornos manda literalmente "null".
+  // Solo confiamos en él para adelantar un rechazo; el estado real lo define
+  // el backend consultando la API de Mercado Pago.
+  const mpStatusParam = (
+    params.get("status") ||
+    params.get("collection_status") ||
+    ""
+  ).toLowerCase();
+  const mpSaysRejected =
+    mpStatusParam === "rejected" || mpStatusParam === "failure";
   const paymentIdParam =
     params.get("payment_id") || params.get("collection_id") || "";
 
@@ -55,6 +69,19 @@ export default function PaymentResult() {
     })();
   }, []);
 
+  // Esta pantalla se hace cargo de mostrar el resultado, así que soltamos el
+  // pago pendiente del borrador: la landing no tiene que volver a redirigir
+  // acá (evita un ida y vuelta infinito con "Volver al inicio").
+  useEffect(() => {
+    clearPendingShiftId();
+  }, []);
+
+  // Reserva pagada: el borrador ya no sirve para nada y no queremos que el
+  // formulario se reabra precargado con una reserva que ya está confirmada.
+  useEffect(() => {
+    if (state === "approved") clearReservationDraft();
+  }, [state]);
+
   const triesRef = useRef(0);
   const cancelledRef = useRef(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -74,13 +101,20 @@ export default function PaymentResult() {
         setState("rejected");
         return true;
       }
+      // El backend todavía no ve el pago (el search por external_reference
+      // tarda en indexar). Si MP ya nos dijo que se rechazó, no tiene sentido
+      // seguir esperando.
+      if (mpSaysRejected) {
+        setState("rejected");
+        return true;
+      }
       setState("pending");
       return false;
     } catch {
       if (!cancelledRef.current) setState("unknown");
       return true;
     }
-  }, [shiftId, paymentIdParam]);
+  }, [shiftId, paymentIdParam, mpSaysRejected]);
 
   useEffect(() => {
     if (!shiftId) {
@@ -93,12 +127,11 @@ export default function PaymentResult() {
     const loop = async () => {
       const done = await fetchOnce();
       if (cancelledRef.current) return;
-      // Seguimos puliendo solo si MP redirigió como approved pero aún no llegó
-      // la confirmación, o si el estado quedó pending.
+      // Reintentamos siempre que no haya estado final: la acreditación de MP y
+      // la indexación de su búsqueda tardan, y el parámetro de la URL no es
+      // confiable para decidir si vale la pena esperar.
       const shouldKeepPolling =
-        !done &&
-        (mpStatusParam === "approved" || mpStatusParam === "" || mpStatusParam === "pending") &&
-        triesRef.current < POLL_DELAYS_SEC.length;
+        !done && triesRef.current < POLL_DELAYS_SEC.length;
       if (!shouldKeepPolling) return;
       const delay = POLL_DELAYS_SEC[triesRef.current] * 1000;
       triesRef.current += 1;
@@ -111,7 +144,7 @@ export default function PaymentResult() {
       cancelledRef.current = true;
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
-  }, [shiftId, mpStatusParam, fetchOnce]);
+  }, [shiftId, fetchOnce]);
 
   const handleManualRefresh = async () => {
     if (refreshing) return;
