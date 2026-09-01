@@ -16,6 +16,7 @@ import {
   listMpPayments,
   linkPaymentToShift,
   IMpPayment,
+  IMpPaymentsSummary,
 } from "../../services/paymentsService";
 import { getShifts } from "../../services/shiftService";
 import { IShift } from "../../interfaces/shift";
@@ -58,12 +59,33 @@ const STATUS_META: Record<
   },
 };
 
+/**
+ * Chips de estado. El valor viaja a la API, así que el filtro se aplica
+ * sobre todo el rango y no sobre lo que ya estaba cargado en pantalla.
+ * "Pendientes" agrupa los dos estados intermedios de MP.
+ */
+const STATUS_FILTERS: { key: string; label: string; statuses: string[] }[] = [
+  { key: "all", label: "Todos", statuses: [] },
+  { key: "approved", label: "Aprobados", statuses: ["approved"] },
+  { key: "pending", label: "Pendientes", statuses: ["pending", "in_process"] },
+  { key: "rejected", label: "Rechazados", statuses: ["rejected"] },
+  { key: "refunded", label: "Reembolsados", statuses: ["refunded"] },
+];
+
+const EMPTY_SUMMARY: IMpPaymentsSummary = {
+  total: 0,
+  byStatus: {},
+  totalApproved: 0,
+};
+
 const MpPayments = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [payments, setPayments] = useState<IMpPayment[]>([]);
+  const [summary, setSummary] = useState<IMpPaymentsSummary>(EMPTY_SUMMARY);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [onlyReservations, setOnlyReservations] = useState(false);
   const [from, setFrom] = useState(
     format(subDays(new Date(), 30), "yyyy-MM-dd"),
   );
@@ -75,8 +97,17 @@ const MpPayments = () => {
   const load = async () => {
     try {
       setLoading(true);
-      const data = await listMpPayments({ from, to, limit: 100 });
+      const statuses =
+        STATUS_FILTERS.find((s) => s.key === statusFilter)?.statuses || [];
+      const { payments: data, summary: totals } = await listMpPayments({
+        from,
+        to,
+        limit: 500,
+        status: statuses,
+        onlyReservations,
+      });
       setPayments(data);
+      setSummary(totals);
     } catch (e) {
       console.error("Error loading payments:", e);
       toast.error("Error cargando pagos");
@@ -88,35 +119,21 @@ const MpPayments = () => {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [from, to]);
+  }, [from, to, statusFilter, onlyReservations]);
 
-  const counts = useMemo(() => {
-    const acc: Record<string, number> = { all: payments.length };
-    let totalApproved = 0;
-    for (const p of payments) {
-      acc[p.status] = (acc[p.status] || 0) + 1;
-      if (p.status === "approved") totalApproved += p.amount || 0;
-    }
-    return { byStatus: acc, totalApproved };
-  }, [payments]);
-
+  // El estado y "solo reservas" los resuelve la API; acá queda solo la
+  // búsqueda de texto, que aplica sobre lo que ya está en pantalla.
   const filtered = useMemo(() => {
-    let arr = payments;
-    if (statusFilter !== "all") {
-      arr = arr.filter((p) => p.status === statusFilter);
-    }
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      arr = arr.filter(
-        (p) =>
-          p.id?.toString().includes(q) ||
-          p.payerEmail?.toLowerCase().includes(q) ||
-          p.shift?.client?.toLowerCase().includes(q) ||
-          p.externalReference?.toLowerCase().includes(q),
-      );
-    }
-    return arr;
-  }, [payments, statusFilter, search]);
+    if (!search.trim()) return payments;
+    const q = search.toLowerCase();
+    return payments.filter(
+      (p) =>
+        p.id?.toString().includes(q) ||
+        p.payerEmail?.toLowerCase().includes(q) ||
+        p.shift?.client?.toLowerCase().includes(q) ||
+        p.externalReference?.toLowerCase().includes(q),
+    );
+  }, [payments, search]);
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -147,26 +164,26 @@ const MpPayments = () => {
               <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
                 <p className="text-xs text-gray-500">Total movimientos</p>
                 <p className="text-2xl font-bold text-gray-800">
-                  {counts.byStatus.all}
+                  {summary.total}
                 </p>
               </div>
               <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
                 <p className="text-xs text-gray-500">Aprobados</p>
                 <p className="text-2xl font-bold text-green-600">
-                  {counts.byStatus.approved || 0}
+                  {summary.byStatus.approved || 0}
                 </p>
               </div>
               <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
                 <p className="text-xs text-gray-500">Pendientes</p>
                 <p className="text-2xl font-bold text-yellow-600">
-                  {(counts.byStatus.pending || 0) +
-                    (counts.byStatus.in_process || 0)}
+                  {(summary.byStatus.pending || 0) +
+                    (summary.byStatus.in_process || 0)}
                 </p>
               </div>
               <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
                 <p className="text-xs text-gray-500">Total cobrado</p>
                 <p className="text-2xl font-bold text-gray-800">
-                  ${counts.totalApproved.toFixed(2)}
+                  ${summary.totalApproved.toFixed(2)}
                 </p>
               </div>
             </div>
@@ -212,14 +229,8 @@ const MpPayments = () => {
                 </div>
               </div>
 
-              <div className="flex flex-wrap gap-2 mt-4">
-                {[
-                  { key: "all", label: "Todos" },
-                  { key: "approved", label: "Aprobados" },
-                  { key: "pending", label: "Pendientes" },
-                  { key: "rejected", label: "Rechazados" },
-                  { key: "refunded", label: "Reembolsados" },
-                ].map((s) => (
+              <div className="flex flex-wrap items-center gap-2 mt-4">
+                {STATUS_FILTERS.map((s) => (
                   <button
                     key={s.key}
                     onClick={() => setStatusFilter(s.key)}
@@ -232,6 +243,20 @@ const MpPayments = () => {
                     {s.label}
                   </button>
                 ))}
+
+                <span className="hidden sm:block h-6 w-px bg-gray-200 mx-1" />
+
+                <button
+                  onClick={() => setOnlyReservations((v) => !v)}
+                  title="Deja solo los pagos generados por la app y oculta el resto de la cuenta MP (QR, link de pago, Point)"
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all border ${
+                    onlyReservations
+                      ? "bg-pink-50 text-pink-600 border-pink-300"
+                      : "bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100"
+                  }`}
+                >
+                  {onlyReservations ? "Solo reservas" : "Toda la cuenta"}
+                </button>
               </div>
             </div>
 
@@ -246,8 +271,13 @@ const MpPayments = () => {
                   No hay movimientos en este período.
                 </p>
                 <p className="text-xs text-gray-400 mt-2">
-                  Verificá que el access token de Mercado Pago esté
-                  configurado en Empresa → Configuración.
+                  Probá ampliar el rango de fechas
+                  {statusFilter !== "all" && " o sacar el filtro de estado"}
+                  {onlyReservations && ' o pasar a "Toda la cuenta"'}.
+                </p>
+                <p className="text-xs text-gray-400 mt-1">
+                  Si no aparece nada en ningún rango, revisá el access token de
+                  Mercado Pago en Empresa → Configuración.
                 </p>
               </div>
             ) : (

@@ -143,14 +143,32 @@ export class PaymentsController {
 
   /**
    * Lista los pagos de la cuenta de Mercado Pago de la compañía.
-   * Acepta query params: from, to, limit. Devuelve cada pago con la reserva
-   * vinculada si existe (matcheada por external_reference).
+   *
+   * Query params:
+   *  - from, to: rango de fechas (YYYY-MM-DD, hora del negocio).
+   *  - limit: tope de movimientos a traer de MP.
+   *  - status: uno o varios estados separados por coma (approved, pending,
+   *    in_process, rejected, cancelled, refunded).
+   *  - onlyReservations: "true" para dejar solo los pagos originados por la
+   *    app (los que traen external_reference con el id de una reserva) y
+   *    descartar el resto de la cuenta MP (QR, link de pago, Point).
+   *
+   * Devuelve cada pago con la reserva vinculada si existe (matcheada por
+   * external_reference) y un summary calculado sobre TODO el rango, antes de
+   * aplicar el filtro de estado, para que los totales del front no dependan
+   * del filtro activo.
    */
   static listMercadoPago: IRouteController<
     {},
     {},
     {},
-    { from?: string; to?: string; limit?: string }
+    {
+      from?: string;
+      to?: string;
+      limit?: string;
+      status?: string;
+      onlyReservations?: string;
+    }
   > = async (req, res) => {
     const logger = new Log(
       res.locals.requestId,
@@ -160,7 +178,13 @@ export class PaymentsController {
       const companyCode = res.locals.companyCode;
       if (!companyCode) throw new Error("Compañía no identificada");
 
-      const limit = req.query.limit ? parseInt(req.query.limit) : 50;
+      const limit = req.query.limit ? parseInt(req.query.limit) : undefined;
+      const statuses = (req.query.status || "")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+      const onlyReservations = req.query.onlyReservations === "true";
+
       const payments = await mercadoPagoService.searchPayments(companyCode, {
         from: req.query.from,
         to: req.query.to,
@@ -181,7 +205,7 @@ export class PaymentsController {
         : [];
       const shiftMap = new Map(shifts.map((s: any) => [String(s._id), s]));
 
-      const enriched = payments.map((p: any) => ({
+      let enriched = payments.map((p: any) => ({
         id: String(p.id),
         status: p.status,
         statusDetail: p.status_detail,
@@ -199,7 +223,32 @@ export class PaymentsController {
           : null,
       }));
 
-      return res.status(200).json({ ack: 0, data: enriched });
+      // "Solo reservas" define el universo, así que se aplica antes del
+      // summary: si el usuario está mirando únicamente pagos de la app, los
+      // totales tienen que ser los de la app.
+      if (onlyReservations) {
+        enriched = enriched.filter(
+          (p) =>
+            !!p.externalReference &&
+            shiftService.validateId(p.externalReference),
+        );
+      }
+
+      const summary = enriched.reduce(
+        (acc, p) => {
+          acc.total += 1;
+          acc.byStatus[p.status] = (acc.byStatus[p.status] || 0) + 1;
+          if (p.status === "approved") acc.totalApproved += p.amount || 0;
+          return acc;
+        },
+        { total: 0, byStatus: {} as Record<string, number>, totalApproved: 0 },
+      );
+
+      const data = statuses.length
+        ? enriched.filter((p) => statuses.includes(p.status))
+        : enriched;
+
+      return res.status(200).json({ ack: 0, data, summary });
     } catch (e) {
       logger.error(e);
       return res.status(400).json({ ack: 1, message: e.message });

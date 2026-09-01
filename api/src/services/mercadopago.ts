@@ -4,6 +4,11 @@ import Log from "../libs/logger";
 
 const log = new Log("MercadoPagoService");
 
+// MP acepta hasta 100 resultados por página en /v1/payments/search.
+const PAGE_SIZE = 100;
+// Tope duro para no encadenar llamadas indefinidamente contra la API de MP.
+const MAX_PAYMENTS = 1000;
+
 async function getClient(companyCode: string): Promise<MercadoPagoConfig | null> {
   const tokenConfig = await configService.findOne({
     code: "mpAccessToken",
@@ -135,7 +140,13 @@ export const mercadoPagoService = {
     }
   },
 
-  /** Lista pagos de la cuenta MP de la compañía en un rango de fechas */
+  /**
+   * Lista pagos de la cuenta MP de la compañía en un rango de fechas.
+   *
+   * Pagina sobre /v1/payments/search hasta cubrir todo el rango (o el tope
+   * pedido): antes traíamos una sola página de 100 y los filtros y totales
+   * del front se calculaban sobre una muestra incompleta.
+   */
   async searchPayments(
     companyCode: string,
     options: { from?: string; to?: string; limit?: number } = {},
@@ -165,54 +176,74 @@ export const mercadoPagoService = {
       endIso ||
       (hasAnyDate ? new Date().toISOString() : undefined);
 
-    try {
-      // Pedimos a MP un rango más amplio que el límite del usuario para
-      // poder cortar localmente sin perder pagos del borde. Si MP filtra
-      // bien por fechas, mejor; si no, lo hacemos nosotros abajo.
-      const search = await payment.search({
-        options: {
-          sort: "date_created",
-          criteria: "desc",
-          limit: Math.max(options.limit ?? 50, 100),
-          ...(hasAnyDate
-            ? {
-                range: "date_created",
-                begin_date: finalBegin,
-                end_date: finalEnd,
-              }
-            : {}),
-        },
-      });
-      const results = (search as any)?.results;
-      const arr = Array.isArray(results) ? results : [];
+    const beginMs = finalBegin ? new Date(finalBegin).getTime() : -Infinity;
+    const endMs = finalEnd ? new Date(finalEnd).getTime() : Infinity;
 
-      // Filtro defensivo: el endpoint /v1/payments/search a veces ignora
-      // begin_date/end_date y devuelve todo. Filtramos por date_created
-      // contra el rango pedido (en hora AR) para garantizar que el filtro
-      // del front realmente funcione.
-      if (hasAnyDate) {
-        const beginMs = finalBegin
-          ? new Date(finalBegin).getTime()
-          : -Infinity;
-        const endMs = finalEnd ? new Date(finalEnd).getTime() : Infinity;
-        const filtered = arr.filter((p: any) => {
+    const max = Math.min(options.limit ?? MAX_PAYMENTS, MAX_PAYMENTS);
+    const collected: any[] = [];
+
+    try {
+      for (let offset = 0; offset < max; offset += PAGE_SIZE) {
+        const search = await payment.search({
+          options: {
+            sort: "date_created",
+            criteria: "desc",
+            limit: PAGE_SIZE,
+            offset,
+            ...(hasAnyDate
+              ? {
+                  range: "date_created",
+                  begin_date: finalBegin,
+                  end_date: finalEnd,
+                }
+              : {}),
+          },
+        });
+
+        const results = (search as any)?.results;
+        const page = Array.isArray(results) ? results : [];
+        if (!page.length) break;
+
+        // Filtro defensivo: el endpoint /v1/payments/search a veces ignora
+        // begin_date/end_date y devuelve todo. Filtramos por date_created
+        // contra el rango pedido (en hora AR) para garantizar que el filtro
+        // del front realmente funcione.
+        for (const p of page) {
+          if (!hasAnyDate) {
+            collected.push(p);
+            continue;
+          }
           const created = p?.date_created
             ? new Date(p.date_created).getTime()
             : NaN;
-          if (isNaN(created)) return false;
-          return created >= beginMs && created <= endMs;
-        });
-        return filtered.slice(0, options.limit ?? 50);
+          if (!isNaN(created) && created >= beginMs && created <= endMs) {
+            collected.push(p);
+          }
+        }
+
+        if (collected.length >= max) break;
+        // Última página según MP.
+        const total = (search as any)?.paging?.total;
+        if (typeof total === "number" && offset + page.length >= total) break;
+        if (page.length < PAGE_SIZE) break;
+
+        // Viene ordenado desc por date_created: si el último de la página ya
+        // es anterior al inicio del rango, las siguientes también lo son.
+        if (hasAnyDate) {
+          const last = page[page.length - 1]?.date_created;
+          if (last && new Date(last).getTime() < beginMs) break;
+        }
       }
 
-      return arr.slice(0, options.limit ?? 50);
+      return collected.slice(0, max);
     } catch (e: any) {
       const detail = e?.cause ?? e?.response?.data ?? e?.message;
       log.error(
         e,
         `Error listando pagos de la compañía ${companyCode}: ${JSON.stringify(detail)}`,
       );
-      return [];
+      // Si falló una página intermedia, devolvemos lo que sí trajimos.
+      return collected;
     }
   },
 
