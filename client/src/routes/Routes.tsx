@@ -12,6 +12,7 @@ import LandingPage from "../pages/landingPage/LandingPage";
 import Tables from "../pages/tables";
 import CompanyConfig from "../pages/company";
 import ScheduleConfig from "../pages/schedule";
+import SlotGenerator from "../pages/slots/SlotGenerator";
 import ClosedDates from "../pages/closedDates/ClosedDates";
 import Workshops from "../pages/workshops/Workshops";
 import PaymentResult from "../pages/PaymentResult";
@@ -84,6 +85,14 @@ export const router = createBrowserRouter([
         element: (
           <ProtectedRoute>
             <ScheduleConfig />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/settings/slots",
+        element: (
+          <ProtectedRoute>
+            <SlotGenerator />
           </ProtectedRoute>
         ),
       },

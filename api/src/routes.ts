@@ -11,6 +11,7 @@ import { PaymentsController } from "./controllers/payments";
 import { ScheduleExceptionController } from "./controllers/scheduleException";
 import { WeeklyScheduleController } from "./controllers/weeklySchedule";
 import { WorkshopController } from "./controllers/workshop";
+import { SlotController } from "./controllers/slot";
 import { WorkshopGalleryController } from "./controllers/workshopGallery";
 
 /**
@@ -204,6 +205,70 @@ const routes = defineRoutes([
         label: "Excepciones de horario",
         method: "delete",
         controller: ScheduleExceptionController.delete,
+        auth: true,
+      },
+      // Generador de disponibilidad
+      {
+        path: "/slots/generate",
+        label: "Generador de turnos",
+        method: "post",
+        controller: SlotController.generate,
+        auth: true,
+      },
+      {
+        path: "/slots/bulk-delete",
+        label: "Generador de turnos",
+        method: "post",
+        controller: SlotController.deleteMany,
+        auth: true,
+      },
+      {
+        path: "/slots/available-dates",
+        label: "Generador de turnos",
+        method: "get",
+        controller: SlotController.availableDates,
+        auth: false,
+      },
+      {
+        path: "/slots/summary",
+        label: "Generador de turnos",
+        method: "get",
+        controller: SlotController.summary,
+        auth: true,
+      },
+      {
+        path: "/slots",
+        label: "Generador de turnos",
+        method: "get",
+        controller: SlotController.findByDate,
+        auth: true,
+      },
+      {
+        path: "/slots",
+        label: "Generador de turnos",
+        method: "post",
+        controller: SlotController.create,
+        auth: true,
+      },
+      {
+        path: "/slots/:id",
+        label: "Generador de turnos",
+        method: "put",
+        controller: SlotController.update,
+        auth: true,
+      },
+      {
+        path: "/slots/:id/status",
+        label: "Generador de turnos",
+        method: "put",
+        controller: SlotController.setStatus,
+        auth: true,
+      },
+      {
+        path: "/slots/:id",
+        label: "Generador de turnos",
+        method: "delete",
+        controller: SlotController.delete,
         auth: true,
       },
       // Talleres (días especiales con precio de niño propio e imágenes)

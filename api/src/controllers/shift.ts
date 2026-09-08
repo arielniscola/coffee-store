@@ -12,6 +12,8 @@ import {
 } from "../services/scheduleException";
 import { weeklyScheduleService } from "../services/weeklySchedule";
 import { workshopService } from "../services/workshop";
+import slotService from "../services/slot";
+import { ISlot } from "../models/slot";
 
 export class ShiftController {
   static find: IRouteController<
@@ -92,11 +94,20 @@ export class ShiftController {
       }
       /** Calculamos el tiempo de finalizacion */
 
-      const shiftDuration = await this.requireShiftDurationMinutes(companyCode);
-      const initTime = this.parseTimeToMinutes(shift.timeStart);
-      let endTime = initTime + shiftDuration;
-      let endtimeString = this.parseMinutesToTime(endTime);
-      shift.timeEnd = endtimeString;
+      const slot = await this.findSlot(
+        companyCode,
+        dateStr,
+        shift.timeStart,
+        shift.unitBusiness
+      );
+      if (slot) {
+        shift.timeEnd = slot.timeEnd;
+      } else {
+        const shiftDuration =
+          await this.requireShiftDurationMinutes(companyCode);
+        const initTime = this.parseTimeToMinutes(shift.timeStart);
+        shift.timeEnd = this.parseMinutesToTime(initTime + shiftDuration);
+      }
 
       const isValid = await shiftService.validate(shift);
       if (isValid) throw new Error(isValid.message);
@@ -129,11 +140,21 @@ export class ShiftController {
       if (!exist) throw new Error("Turno no encontrado");
       /** Calculamos el tiempo de finalizacion */
 
-      const shiftDuration = await this.requireShiftDurationMinutes(companyCode);
-      const initTime = this.parseTimeToMinutes(shiftUpdate.timeStart);
-      let endTime = initTime + shiftDuration;
-      let endtimeString = this.parseMinutesToTime(endTime);
-      shiftUpdate.timeEnd = endtimeString;
+      const updateDateStr = moment(shiftUpdate.date).utc().format("YYYY-MM-DD");
+      const slot = await this.findSlot(
+        companyCode,
+        updateDateStr,
+        shiftUpdate.timeStart,
+        shiftUpdate.unitBusiness
+      );
+      if (slot) {
+        shiftUpdate.timeEnd = slot.timeEnd;
+      } else {
+        const shiftDuration =
+          await this.requireShiftDurationMinutes(companyCode);
+        const initTime = this.parseTimeToMinutes(shiftUpdate.timeStart);
+        shiftUpdate.timeEnd = this.parseMinutesToTime(initTime + shiftDuration);
+      }
 
       const response = await shiftService.updateOne(shiftUpdate);
       if (!response) throw new Error("Turno no se actualizo");
@@ -237,6 +258,38 @@ export class ShiftController {
       if (await this.isDateClosed(companyCode, date)) {
         return res.status(200).json({ ack: 0, data: [] });
       }
+      // Agenda generada: si la fecha tiene turnos materializados, mandan ellos.
+      // Las compañías que todavía no corrieron el generador caen al cálculo al
+      // vuelo de más abajo, así la landing sigue funcionando sin migrar nada.
+      const generated = await slotService.applyWorkshops(
+        companyCode,
+        await slotService.findByDate(
+          companyCode,
+          date,
+          req.query.unitBusiness || undefined
+        )
+      );
+      if (generated.length) {
+        const occupancy = await slotService.getOccupancyMap(
+          companyCode,
+          date,
+          date,
+          req.query.unitBusiness || undefined
+        );
+        const data = slotService
+          .withAvailability(generated, occupancy)
+          // Los turnos cerrados no se ofrecen al público.
+          .filter((slot) => slot.status === "open")
+          .map((slot) => ({
+            availables: slot.availables,
+            availablesAdults: slot.availablesAdults,
+            availablesChildren: slot.availablesChildren,
+            initialTime: slot.timeStart,
+            free: !slot.requiresDeposit,
+          }));
+        return res.status(200).json({ ack: 0, data });
+      }
+
       const startDate = moment(date, "YYYY-MM-DD").startOf("day").utc(true);
       const endDate = moment(date, "YYYY-MM-DD").utc(true).endOf("day");
       const filter = {
@@ -384,9 +437,27 @@ export class ShiftController {
       if (typeof shift.date === "string") {
         shift.date = moment(shift.date, "YYYY-MM-DD").utc(true).toDate();
       }
-      const shiftDuration = await this.requireShiftDurationMinutes(companyCode);
-      const initTime = this.parseTimeToMinutes(shift.timeStart);
-      shift.timeEnd = this.parseMinutesToTime(initTime + shiftDuration);
+      // El turno generado es la fuente de verdad de la duración: cada regla
+      // tiene la suya, así que no se puede seguir usando el config global.
+      const slot = await this.findSlot(
+        companyCode,
+        dateStr,
+        shift.timeStart,
+        shift.unitBusiness
+      );
+      if (slot && slot.status === "closed") {
+        throw new Error(
+          "Ese horario ya no está disponible. Por favor elegí otro."
+        );
+      }
+      if (slot) {
+        shift.timeEnd = slot.timeEnd;
+      } else {
+        const shiftDuration =
+          await this.requireShiftDurationMinutes(companyCode);
+        const initTime = this.parseTimeToMinutes(shift.timeStart);
+        shift.timeEnd = this.parseMinutesToTime(initTime + shiftDuration);
+      }
 
       const expiresAt = moment().add(15, "minutes").toDate();
       shift.paymentExpiresAt = expiresAt;
@@ -406,9 +477,13 @@ export class ShiftController {
         code: "priceAdult",
         companyCode,
       });
+      // Precedencia del precio por niño: taller > seña propia del turno >
+      // config general de la compañía.
       const priceChild = workshop
         ? workshop.priceChild
-        : Number(priceChildConfig?.value) || 0;
+        : slot?.depositAmount
+          ? slot.depositAmount
+          : Number(priceChildConfig?.value) || 0;
       const priceAdult = Number(priceAdultConfig?.value) || 0;
       const adultsQty = shift.adultsQty || 0;
       const childrenQty = shift.childrenQty || 0;
@@ -417,8 +492,12 @@ export class ShiftController {
       // únicamente por los niños; si no hay niños se cobra por los adultos.
       // Los bebés nunca abonan.
       // Si el horario elegido cae en una franja sin seña, la reserva no abona.
-      const freeSlot =
-        !workshop && (await this.isFreeSlot(companyCode, dateStr, shift.timeStart));
+      // Si el turno está generado, su `requiresDeposit` decide; si no, se cae
+      // al flag `free` de la franja del horario semanal.
+      const freeSlot = slot
+        ? !slot.requiresDeposit
+        : !workshop &&
+          (await this.isFreeSlot(companyCode, dateStr, shift.timeStart));
       const totalPrice = freeSlot
         ? 0
         : childrenQty > 0
@@ -836,6 +915,35 @@ export class ShiftController {
     minutes: number
   ): boolean {
     return ranges.some((r) => minutes >= r.start && minutes < r.end);
+  }
+
+  /**
+   * Turno generado que corresponde a una reserva (fecha + hora de inicio +
+   * unidad de negocio), o null si la compañía todavía no generó su agenda.
+   * Es el puente entre el generador y el flujo de reserva: de acá salen la
+   * duración real del turno, si cobra seña y con qué precio.
+   */
+  private static async findSlot(
+    companyCode: string,
+    dateStr: string,
+    timeStart: string,
+    unitBusiness?: string
+  ): Promise<ISlot | null> {
+    try {
+      if (!timeStart) return null;
+      const slots = await slotService.applyWorkshops(
+        companyCode,
+        await slotService.findByDate(
+          companyCode,
+          dateStr,
+          unitBusiness || undefined
+        )
+      );
+      return slots.find((slot) => slot.timeStart === timeStart) || null;
+    } catch (e) {
+      // Ante una falla de lectura seguimos por el camino viejo.
+      return null;
+    }
   }
 
   /**

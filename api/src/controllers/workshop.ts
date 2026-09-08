@@ -4,6 +4,10 @@ import { IRouteController } from "../routes/index";
 import { IWorkshop } from "../models/workshop";
 import { workshopService } from "../services/workshop";
 
+/** "" o ausente -> null (heredar capacidad de la compañía); si no, número. */
+const emptyToNull = (value: unknown): number | null =>
+  value === "" || value == null ? null : Number(value);
+
 /**
  * Normaliza y valida el payload de un taller. Devuelve los campos listos
  * para persistir o lanza un Error descriptivo. Las imágenes de talleres son
@@ -22,12 +26,24 @@ function parseWorkshopBody(body: Partial<IWorkshop> & { date?: string }) {
   if (Number.isNaN(priceChild) || priceChild < 0) {
     throw new Error("El precio por niño debe ser un número mayor o igual a 0.");
   }
+  const requiresDeposit = body.requiresDeposit !== false;
+  const depositAmount = Number(body.depositAmount || 0);
+  if (depositAmount < 0) {
+    throw new Error("El monto de la seña no puede ser negativo.");
+  }
+
   return {
     dateStr,
     title,
     priceChild,
     description: String(body.description || "").trim(),
     active: body.active !== false,
+    requiresDeposit,
+    depositAmount,
+    // El formulario manda "" cuando el campo queda vacío: eso significa
+    // "usar la capacidad de la compañía", no cero.
+    capacityAdults: emptyToNull(body.capacityAdults),
+    capacityChildren: emptyToNull(body.capacityChildren),
   };
 }
 
@@ -94,6 +110,10 @@ export class WorkshopController {
         description: parsed.description,
         priceChild: parsed.priceChild,
         active: parsed.active,
+        requiresDeposit: parsed.requiresDeposit,
+        depositAmount: parsed.depositAmount,
+        capacityAdults: parsed.capacityAdults,
+        capacityChildren: parsed.capacityChildren,
         date: moment(parsed.dateStr, "YYYY-MM-DD")
           .utc(true)
           .startOf("day")
@@ -135,6 +155,10 @@ export class WorkshopController {
           description: parsed.description,
           priceChild: parsed.priceChild,
           active: parsed.active,
+          requiresDeposit: parsed.requiresDeposit,
+          depositAmount: parsed.depositAmount,
+          capacityAdults: parsed.capacityAdults,
+          capacityChildren: parsed.capacityChildren,
           date: moment(parsed.dateStr, "YYYY-MM-DD")
             .utc(true)
             .startOf("day")

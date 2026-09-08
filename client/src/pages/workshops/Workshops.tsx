@@ -39,6 +39,7 @@ const emptyForm = (): IWorkshop => ({
   description: "",
   priceChild: 0,
   active: true,
+  requiresDeposit: true,
 });
 
 /**

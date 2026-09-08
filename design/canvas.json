@@ -1,0 +1,22 @@
+{
+  "artboards": [
+    { "file": "Main.dc.html", "title": "Disponibilidad", "x": 0, "y": 0, "w": 1440, "h": 900, "expand": "fit" }
+  ],
+  "annotations": [
+    {
+      "id": "que-cambia",
+      "x": 0,
+      "y": -340,
+      "w": 520,
+      "text": "QUÉ CAMBIA CONTRA LA PANTALLA DE HOY\n\n1. El calendario reemplaza al bloque de previsualización. Mientras elegís días y horarios, los días afectados se marcan en rosa punteado con el \"+3\". Al publicar quedan azules. Ya no hay un paso 2 que aparece y desaparece.\n\n2. El calendario es también la vista de lo publicado. Clic en un día y abajo salen sus horarios para tildar y borrar. Configurar, revisar y limpiar pasan a estar en la misma pantalla.\n\n3. El aviso \"esto no crea reservas\" deja de ser un cartel azul suelto: va en el subtítulo.\n\n4. El estado de la agenda sube al encabezado, como pastilla con punto verde: hoy está perdido en una línea gris.\n\n5. La seña se lee como chip de color en cada horario, no como checkbox: azul con seña, verde sin seña.\n\n6. Un horario con reservas no ofrece el borrado. Muestra por qué no y deja el candado."
+    },
+    {
+      "id": "pendiente",
+      "x": 560,
+      "y": -340,
+      "w": 400,
+      "text": "PENDIENTE DE DEFINIR\n\n· Cómo se apila esto abajo de ~1280px. Lo más probable: el panel de configuración pasa a un cajón lateral y el calendario queda a ancho completo.\n\n· Qué pasa al hacer clic en un día que todavía no tiene nada publicado.\n\nDatos de ejemplo. Tipografía, colores, sidebar y cards son los de la app real: Inter, slate-800, degradés blue-300 → pink-300, cards blancas con borde gray-200."
+    }
+  ],
+  "launch": { "view": "focused", "file": "Main.dc.html" }
+}

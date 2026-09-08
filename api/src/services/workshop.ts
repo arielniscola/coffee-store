@@ -26,6 +26,24 @@ export class WorkshopService extends Service<IWorkshop> {
   }
 
   /**
+   * Talleres activos que caen dentro de un rango de fechas (yyyy-MM-dd).
+   * El generador lo usa para no consultar un taller por cada día del rango.
+   */
+  async findActiveInRange(
+    companyCode: string,
+    from: string,
+    to: string
+  ): Promise<IWorkshop[]> {
+    const rangeStart = moment(from, "YYYY-MM-DD").utc(true).startOf("day");
+    const rangeEnd = moment(to, "YYYY-MM-DD").utc(true).endOf("day");
+    return await this.find({
+      companyCode,
+      active: true,
+      date: { $gte: rangeStart.toDate(), $lte: rangeEnd.toDate() },
+    });
+  }
+
+  /**
    * Talleres activos de hoy en adelante, ordenados por fecha. Es lo que
    * consume la landing pública y el flujo de reserva.
    */

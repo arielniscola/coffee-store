@@ -18,6 +18,16 @@ export interface IWorkshop {
   priceChild: number;
   /** Un taller inactivo no cambia precios ni se muestra en la landing. */
   active: boolean;
+  /**
+   * Cómo cobra la disponibilidad de ese día. El generador aplica estos valores
+   * a los horarios del día del taller: si exige seña y con qué monto por niño
+   * (en 0 se usa `priceChild`), y con qué capacidad.
+   */
+  requiresDeposit?: boolean;
+  depositAmount?: number;
+  /** Capacidad propia del taller. En null se usa la de la compañía. */
+  capacityAdults?: number | null;
+  capacityChildren?: number | null;
 }
 
 export const WorkshopSchema = createSchema<IWorkshop>(
@@ -46,6 +56,25 @@ export const WorkshopSchema = createSchema<IWorkshop>(
     active: {
       type: Boolean,
       default: true,
+    },
+    requiresDeposit: {
+      type: Boolean,
+      default: true,
+    },
+    depositAmount: {
+      type: Number,
+      required: false,
+      default: 0,
+    },
+    capacityAdults: {
+      type: Number,
+      required: false,
+      default: null,
+    },
+    capacityChildren: {
+      type: Number,
+      required: false,
+      default: null,
     },
   },
   { timestamps: true }

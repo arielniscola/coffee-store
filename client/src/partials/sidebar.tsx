@@ -16,6 +16,7 @@ import {
   CalendarOff,
   Clock,
   Palette,
+  Sparkles,
   LogOut,
   User as UserIcon,
   ChevronDown,
@@ -296,6 +297,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
                               <Clock className="w-4 h-4 shrink-0" />
                               <span className="text-sm font-medium ml-2 truncate">
                                 Horarios
+                              </span>
+                            </NavLink>
+                          </li>
+                          <li>
+                            <NavLink
+                              end
+                              to="/settings/slots"
+                              className={({ isActive: a }) =>
+                                subLinkClasses(a)
+                              }
+                            >
+                              <Sparkles className="w-4 h-4 shrink-0" />
+                              <span className="text-sm font-medium ml-2 truncate">
+                                Disponibilidad
                               </span>
                             </NavLink>
                           </li>
