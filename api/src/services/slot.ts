@@ -20,6 +20,13 @@ export interface SlotAvailability extends ISlot {
   availables: number;
 }
 
+/**
+ * Unidad "comodín" para la ocupación agregada de un horario. Se usa solo como
+ * clave, nunca como valor real de `unitBusiness`, para no chocar con la clave
+ * de las reservas que efectivamente no tienen unidad.
+ */
+const ANY_UNIT = "*any*";
+
 /** Clave de identidad de un slot dentro de una compañía. */
 export const slotKey = (
   unitBusiness: string,
@@ -44,7 +51,15 @@ export class SlotService extends Service<ISlot> {
       {
         companyCode,
         date: { $gte: dayStart.toDate(), $lte: dayEnd.toDate() },
-        ...(unitBusiness ? { unitBusiness } : {}),
+        // Una disponibilidad sin unidad de negocio vale para todas: el
+        // generador las crea así (el formulario no manda unitBusiness), pero
+        // la reserva sí viaja con la unidad del cliente. Filtrando por
+        // igualdad estricta, el checkout no encontraba el slot, caía al
+        // horario semanal y cobraba seña en franjas que el listado de
+        // disponibilidad mostraba como gratis.
+        ...(unitBusiness
+          ? { unitBusiness: { $in: [unitBusiness, "", null] } }
+          : {}),
       },
       {},
       { sort: { timeStart: 1 } }
@@ -95,13 +110,15 @@ export class SlotService extends Service<ISlot> {
     });
 
     const map = new Map<string, SlotOccupancy>();
-    for (const shift of shifts as IShift[]) {
-      const key = slotKey(
-        shift.unitBusiness || "",
-        moment(shift.date).utc().format("YYYY-MM-DD"),
-        shift.timeStart
-      );
+    const add = (key: string, adults: number, children: number) => {
       const current = map.get(key) || { adults: 0, children: 0 };
+      current.adults += adults;
+      current.children += children;
+      map.set(key, current);
+    };
+
+    for (const shift of shifts as IShift[]) {
+      const dateStr = moment(shift.date).utc().format("YYYY-MM-DD");
       const adults = shift.adultsQty || 0;
       const children = shift.childrenQty || 0;
       // Las reservas viejas (y las cargadas por API sin desglosar) traen solo
@@ -109,9 +126,21 @@ export class SlotService extends Service<ISlot> {
       // veía libre y se podía borrar con la reserva adentro. Se cuentan como
       // adultos, la misma convención que usa el calendario de turnos.
       const undetailed = adults + children === 0 ? shift.peopleQty || 0 : 0;
-      current.adults += adults + undetailed;
-      current.children += children;
-      map.set(key, current);
+
+      add(
+        slotKey(shift.unitBusiness || "", dateStr, shift.timeStart),
+        adults + undetailed,
+        children
+      );
+      // Total del horario sin importar la unidad. Lo consume `withAvailability`
+      // para los slots sin unidad de negocio, que sirven a todas: con la clave
+      // por unidad, una reserva de "cafeteria" no descontaba del slot global y
+      // el horario se veía siempre vacío.
+      add(
+        slotKey(ANY_UNIT, dateStr, shift.timeStart),
+        adults + undetailed,
+        children
+      );
     }
     return map;
   }
@@ -174,7 +203,7 @@ export class SlotService extends Service<ISlot> {
   ): SlotAvailability[] {
     return slots.map((slot) => {
       const key = slotKey(
-        slot.unitBusiness || "",
+        slot.unitBusiness || ANY_UNIT,
         moment(slot.date).utc().format("YYYY-MM-DD"),
         slot.timeStart
       );

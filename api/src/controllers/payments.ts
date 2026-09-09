@@ -1,7 +1,10 @@
 import Log from "../libs/logger";
 import { IRouteController } from "../routes/index";
 import { IShift } from "../models/shift";
-import { mercadoPagoService } from "../services/mercadopago";
+import {
+  mercadoPagoService,
+  parseShiftIdFromReference,
+} from "../services/mercadopago";
 import { shiftService } from "../services/shift";
 import { sendShiftConfirmationEmailOnce } from "../services/email";
 import { paymentReconciler } from "../services/paymentReconciler";
@@ -60,7 +63,7 @@ export class PaymentsController {
         return;
       }
 
-      const shiftId = payment.external_reference;
+      const shiftId = parseShiftIdFromReference(payment.external_reference);
       if (!shiftId || !shiftService.validateId(shiftId)) {
         logger.error(null, `Webhook: external_reference inválido (${shiftId})`);
         return;
@@ -195,8 +198,8 @@ export class PaymentsController {
       const refIds = Array.from(
         new Set(
           payments
-            .map((p: any) => p.external_reference)
-            .filter((r: any) => r && shiftService.validateId(r)),
+            .map((p: any) => parseShiftIdFromReference(p.external_reference))
+            .filter((r: string) => r && shiftService.validateId(r)),
         ),
       ) as string[];
 
@@ -218,9 +221,10 @@ export class PaymentsController {
         dateCreated: p.date_created,
         dateApproved: p.date_approved,
         externalReference: p.external_reference,
-        shift: p.external_reference
-          ? shiftMap.get(String(p.external_reference)) || null
-          : null,
+        // El external_reference nuevo es legible ("<id> | fecha | hora | tel"),
+        // así que hay que quedarse con el id para cruzarlo con la reserva.
+        shift:
+          shiftMap.get(parseShiftIdFromReference(p.external_reference)) || null,
       }));
 
       // "Solo reservas" define el universo, así que se aplica antes del
@@ -230,7 +234,9 @@ export class PaymentsController {
         enriched = enriched.filter(
           (p) =>
             !!p.externalReference &&
-            shiftService.validateId(p.externalReference),
+            shiftService.validateId(
+              parseShiftIdFromReference(p.externalReference),
+            ),
         );
       }
 

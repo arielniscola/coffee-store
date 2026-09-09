@@ -24,6 +24,7 @@ import {
   getSlotSummary,
   getSlotsByDate,
   setSlotStatus,
+  updateSlot,
 } from "../../services/slotService";
 import { getClosedDates } from "../../services/shiftService";
 import { formatLongDate } from "../../utils/dates";
@@ -287,6 +288,40 @@ export default function SlotGenerator() {
     } catch (e) {
       console.error(e);
       toast.error("Error al cambiar la disponibilidad");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /**
+   * Pasa una franja publicada de "con seña" a "sin seña" y viceversa. Es la
+   * única forma de corregirlo sin borrar la franja: el `requiresDeposit` del
+   * slot le gana al flag `free` del horario semanal a la hora de cobrar.
+   */
+  const toggleDeposit = async (slot: ISlot) => {
+    if (!slot._id) return;
+    if (slot.kind === "workshop") {
+      toast.error("La seña de un taller se cambia desde el taller.");
+      return;
+    }
+    try {
+      setBusy(true);
+      const res = await updateSlot(slot._id, {
+        requiresDeposit: !slot.requiresDeposit,
+      });
+      if (res.ack) {
+        toast.error(res.message || "No se pudo cambiar la seña");
+        return;
+      }
+      toast.success(
+        slot.requiresDeposit
+          ? "La franja pasó a sin seña"
+          : "La franja pasó a con seña",
+      );
+      await loadDay(day);
+    } catch (e) {
+      console.error(e);
+      toast.error("Error al cambiar la seña");
     } finally {
       setBusy(false);
     }
@@ -725,17 +760,27 @@ export default function SlotGenerator() {
                                       taller
                                     </span>
                                   )}
-                                  <span
-                                    className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${
+                                  <button
+                                    type="button"
+                                    disabled={busy || slot.kind === "workshop"}
+                                    onClick={() => toggleDeposit(slot)}
+                                    title={
+                                      slot.kind === "workshop"
+                                        ? "La seña del taller se configura en el taller"
+                                        : slot.requiresDeposit
+                                          ? "Pasar a sin seña (no se cobra al reservar)"
+                                          : "Pasar a con seña"
+                                    }
+                                    className={`text-[11px] px-2 py-0.5 rounded-full font-medium transition-colors disabled:opacity-60 disabled:cursor-default ${
                                       slot.requiresDeposit
-                                        ? "bg-blue-100 text-blue-700"
-                                        : "bg-emerald-100 text-emerald-700"
+                                        ? "bg-blue-100 text-blue-700 hover:bg-blue-200"
+                                        : "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
                                     }`}
                                   >
                                     {slot.requiresDeposit
                                       ? `con seña${slot.depositAmount ? ` $${slot.depositAmount}` : ""}`
                                       : "sin seña"}
-                                  </span>
+                                  </button>
                                   {slot.status === "closed" && (
                                     <span className="text-[11px] px-2 py-0.5 rounded-full bg-gray-200 text-gray-600">
                                       cerrado

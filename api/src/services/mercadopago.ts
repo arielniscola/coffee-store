@@ -44,6 +44,91 @@ async function getApiBaseUrl(companyCode: string): Promise<string | null> {
   return trimmed;
 }
 
+/** Separador del external_reference legible. Ver `buildExternalReference`. */
+const REF_SEP = " | ";
+
+/**
+ * Arma el external_reference que viaja a Mercado Pago. Antes era el id pelado
+ * de la reserva, así que el comprobante que nos reenvía el cliente no decía
+ * nada útil: ahora lleva además la fecha y el horario en formato legible.
+ *
+ * El número de reserva va SIEMPRE primero y separado por `REF_SEP`, porque
+ * todo lo que consume la referencia (webhook, listado de pagos, reconciliador)
+ * la parsea con `parseShiftIdFromReference`.
+ */
+export function buildExternalReference(input: {
+  /** Id de la reserva. Va primero: es lo que se parsea de vuelta. */
+  shiftId: string;
+  /** Código corto de reserva, el mismo que sale en el comprobante. */
+  shiftCode: string;
+  /** Fecha de la reserva, ya formateada. */
+  date: string;
+  /** Horario de la reserva (HH:mm). */
+  timeStart: string;
+}): string {
+  // MP corta external_reference en 256 caracteres.
+  return [input.shiftId, input.shiftCode, input.date, input.timeStart]
+    .join(REF_SEP)
+    .slice(0, 256);
+}
+
+/**
+ * Extrae el id de reserva de un external_reference. Tolera el formato viejo
+ * (el id pelado) para que los pagos previos al cambio se sigan vinculando.
+ */
+export function parseShiftIdFromReference(ref?: string | null): string {
+  if (!ref) return "";
+  return String(ref).split("|")[0].trim();
+}
+
+/**
+ * Título del ítem de la preferencia.
+ *
+ * Es el ÚNICO campo que Mercado Pago imprime en el comprobante de pago que
+ * después nos reenvía el cliente ("Comprobante de <título>"): ni la
+ * `description` ni el `external_reference` aparecen ahí. Por eso el número de
+ * reserva, la fecha y el horario tienen que ir todos en el título.
+ *
+ * MP además sanea el texto y se come las barras: un `24/09/2026` llegaba como
+ * `24092026`. La fecha se arma con `buildTitleDate`, sin barras.
+ */
+export function buildPaymentTitle(input: {
+  /** Código corto de reserva (ver `buildShiftCode`). */
+  shiftCode: string;
+  /** Fecha ya formateada sin barras (ver `buildTitleDate`). */
+  date: string;
+  /** Horario de la reserva (HH:mm). */
+  timeStart: string;
+  /** Título del taller, si la reserva corresponde a uno. */
+  workshopTitle?: string;
+}): string {
+  const que = input.workshopTitle
+    ? `Taller ${input.workshopTitle}`
+    : "Reserva";
+  return `${que} ${input.date} ${input.timeStart} hs - Nro ${input.shiftCode}`.slice(
+    0,
+    250,
+  );
+}
+
+/**
+ * Detalle del ítem de la preferencia. No sale en el comprobante, pero sí en la
+ * pantalla de checkout, así que ahí va el dato en prosa y con el cliente.
+ */
+export function buildPaymentDescription(input: {
+  shiftCode: string;
+  date: string;
+  timeStart: string;
+  client?: string;
+}): string {
+  const parts = [
+    `Reserva Nro ${input.shiftCode}`,
+    `${input.date} a las ${input.timeStart}`,
+  ];
+  if (input.client) parts.push(input.client);
+  return parts.join(" - ");
+}
+
 export interface PreferenceInput {
   shiftId: string;
   companyCode: string;
@@ -53,6 +138,13 @@ export interface PreferenceInput {
   payerEmail?: string;
   /** ISO date string. Si está presente, MP marca expirada la preferencia. */
   expirationDate?: string;
+  /**
+   * Referencia legible ya armada (ver `buildExternalReference`). Si no viene,
+   * se usa el id de la reserva pelado.
+   */
+  externalReference?: string;
+  /** Detalle del ítem: se ve en el comprobante de pago de MP. */
+  description?: string;
 }
 
 export interface PreferenceOutput {
@@ -84,12 +176,13 @@ export const mercadoPagoService = {
           {
             id: input.shiftId,
             title: input.title,
+            ...(input.description ? { description: input.description } : {}),
             quantity: input.quantity,
             unit_price: input.unitPrice,
             currency_id: "ARS",
           },
         ],
-        external_reference: input.shiftId,
+        external_reference: input.externalReference || input.shiftId,
         payer: input.payerEmail ? { email: input.payerEmail } : undefined,
         back_urls: {
           success: `${baseUrl}/payment-result?shiftId=${input.shiftId}`,
@@ -247,17 +340,33 @@ export const mercadoPagoService = {
     }
   },
 
-  /** Busca el último pago vinculado a una reserva (por external_reference) */
-  async findLastPaymentByShift(companyCode: string, shiftId: string) {
+  /**
+   * Busca el último pago vinculado a una reserva (por external_reference).
+   *
+   * MP solo matchea external_reference exacto, así que hay que buscar con la
+   * misma cadena que se mandó al crear la preferencia: por eso se guarda en el
+   * shift. Las reservas anteriores al cambio no la tienen y se buscan por id.
+   */
+  async findLastPaymentByShift(
+    companyCode: string,
+    shiftId: string,
+    externalReference?: string,
+  ) {
     const client = await getClient(companyCode);
     if (!client) return null;
     const payment = new Payment(client);
+    const refs = [externalReference, shiftId].filter(
+      (r, i, arr): r is string => !!r && arr.indexOf(r) === i,
+    );
     try {
-      const search = await payment.search({
-        options: { external_reference: shiftId, sort: "date_created", criteria: "desc" },
-      });
-      const results = (search as any)?.results;
-      return Array.isArray(results) && results.length ? results[0] : null;
+      for (const ref of refs) {
+        const search = await payment.search({
+          options: { external_reference: ref, sort: "date_created", criteria: "desc" },
+        });
+        const results = (search as any)?.results;
+        if (Array.isArray(results) && results.length) return results[0];
+      }
+      return null;
     } catch (e) {
       log.error(e, `Error buscando pagos de la reserva ${shiftId}`);
       return null;

@@ -112,16 +112,35 @@ export const deleteShift = async (id: string = "") => {
   }
 };
 
-export const getStatistics = async (date: string) => {
+/** Filtros del tablero de estadísticas. Los comparten stats y exportación. */
+export interface StatisticsFilters {
+  /** Inicio del rango, YYYY-MM-DD (inclusive). */
+  from: string;
+  /** Fin del rango, YYYY-MM-DD (inclusive). */
+  to: string;
+  /** "linked" = con pago de MP asociado; "unlinked" = sin vincular. */
+  linked?: "all" | "linked" | "unlinked";
+}
+
+const statisticsParams = (filters: StatisticsFilters) => {
+  const params = new URLSearchParams({ from: filters.from, to: filters.to });
+  if (filters.linked && filters.linked !== "all")
+    params.set("linked", filters.linked);
+  return params;
+};
+
+export const getStatistics = async (filters: StatisticsFilters) => {
   try {
-    /** Configurar fecha como principio de semana */
-    const res = await fetch(`${URL_API}/shifts/statistics?date=${date}`, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${localStorage.getItem("token")}`,
+    const res = await fetch(
+      `${URL_API}/shifts/statistics?${statisticsParams(filters).toString()}`,
+      {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
       },
-    });
+    );
 
     if (res.status === 401) unauthorized();
     const response: ResponseApi<any> = await res.json();
@@ -131,6 +150,37 @@ export const getStatistics = async (date: string) => {
   } catch (error) {
     throw error;
   }
+};
+
+/**
+ * Descarga el Excel de turnos del rango/filtro indicado. La API responde un
+ * binario, así que hay que forzar la descarga a mano en vez de navegar a la
+ * URL: el endpoint pide el token en el header y un <a href> no lo manda.
+ */
+export const downloadShiftsExcel = async (filters: StatisticsFilters) => {
+  const res = await fetch(
+    `${URL_API}/shifts/export?${statisticsParams(filters).toString()}`,
+    {
+      method: "GET",
+      headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+    },
+  );
+  if (res.status === 401) return unauthorized();
+  if (!res.ok) {
+    // El error sí viene como JSON.
+    const error = await res.json().catch(() => null);
+    throw new Error(error?.message || "No se pudo generar el Excel");
+  }
+
+  const blob = await res.blob();
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `turnos_${filters.from}_${filters.to}.xlsx`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
 };
 export const checkoutShift = async (
   shift: Partial<IShift>,

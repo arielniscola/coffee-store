@@ -1,10 +1,17 @@
 import moment from "moment";
+import ExcelJS from "exceljs";
+import { buildShiftCode } from "../libs/shiftCode";
 import Log from "../libs/logger";
 import { IShift } from "../models/shift";
 import { IRouteController } from "../routes/index";
 import { shiftService } from "../services/shift";
 import configService from "../services/config";
-import { mercadoPagoService } from "../services/mercadopago";
+import {
+  mercadoPagoService,
+  buildExternalReference,
+  buildPaymentDescription,
+  buildPaymentTitle,
+} from "../services/mercadopago";
 import { sendShiftConfirmationEmailOnce } from "../services/email";
 import {
   scheduleExceptionService,
@@ -14,6 +21,22 @@ import { weeklyScheduleService } from "../services/weeklySchedule";
 import { workshopService } from "../services/workshop";
 import slotService from "../services/slot";
 import { ISlot } from "../models/slot";
+
+/**
+ * Fecha para el título de la preferencia de Mercado Pago. Sin barras: MP las
+ * borra del título del ítem y `24/09/2026` terminaba impreso como `24092026`
+ * en el comprobante que nos reenvía el cliente.
+ */
+const buildTitleDate = (date: moment.Moment) => date.format("DD-MM-YYYY");
+
+/** Estados internos -> texto legible para la exportación a Excel. */
+const SHIFT_STATUS_LABELS: Record<string, string> = {
+  toConfirm: "Pendiente",
+  confirmed: "Confirmada",
+  paid: "Pagada",
+  cancelled: "Cancelada",
+  pendingPayment: "Esperando pago",
+};
 
 export class ShiftController {
   static find: IRouteController<
@@ -183,25 +206,72 @@ export class ShiftController {
     }
   };
 
-  static statistics: IRouteController<{}, {}, {}, { date: string }> = async (
-    req,
-    res
-  ) => {
+  /**
+   * Filtros compartidos por el tablero de estadísticas y la exportación a
+   * Excel, para que el Excel sea exactamente lo que el usuario está viendo.
+   *
+   * Rango: `from`/`to` (YYYY-MM-DD, inclusive). Se mantiene `date` (MM/YYYY)
+   * porque el tablero arrancó siendo solo mensual y puede quedar guardado en
+   * links viejos; si vienen los dos, gana el rango.
+   *
+   * Vinculación: una reserva está "vinculada" si tiene un pago de Mercado
+   * Pago asociado (`paymentId`). Las cargadas a mano o sin seña no lo tienen.
+   */
+  private static buildStatsFilter(
+    companyCode: string,
+    query: { date?: string; from?: string; to?: string; linked?: string },
+  ) {
+    let range: { $gte: Date; $lte: Date } | null = null;
+    if (query.from || query.to) {
+      // Sin uno de los extremos el rango queda abierto de ese lado.
+      const start = query.from
+        ? moment(query.from, "YYYY-MM-DD").utc(true).startOf("day")
+        : moment("1970-01-01", "YYYY-MM-DD").utc(true).startOf("day");
+      const end = query.to
+        ? moment(query.to, "YYYY-MM-DD").utc(true).endOf("day")
+        : moment("2999-12-31", "YYYY-MM-DD").utc(true).endOf("day");
+      if (start.isValid() && end.isValid()) {
+        range = { $gte: start.toDate(), $lte: end.toDate() };
+      }
+    } else if (query.date) {
+      const start = moment(query.date, "MM/YYYY").startOf("month").utc(true);
+      const end = moment(query.date, "MM/YYYY").utc(true).endOf("month");
+      if (start.isValid() && end.isValid()) {
+        range = { $gte: start.toDate(), $lte: end.toDate() };
+      }
+    }
+
+    // `paymentId` puede faltar o estar en "" según cómo se cargó la reserva:
+    // ambos casos cuentan como sin vincular.
+    const linkedFilter =
+      query.linked === "linked"
+        ? { paymentId: { $nin: [null, ""] } }
+        : query.linked === "unlinked"
+          ? { paymentId: { $in: [null, ""] } }
+          : {};
+
+    return {
+      companyCode,
+      ...(range ? { date: range } : {}),
+      ...linkedFilter,
+    } as any;
+  }
+
+  /** Reservas que cuentan como reales (las pendingPayment todavía no lo son). */
+  private static isCountableShift(shift: IShift) {
+    return shift.status !== "pendingPayment";
+  }
+
+  static statistics: IRouteController<
+    {},
+    {},
+    {},
+    { date?: string; from?: string; to?: string; linked?: string }
+  > = async (req, res) => {
     const logger = new Log(res.locals.requestId, "ShiftController.statistics");
     try {
       const companyCode = res.locals.companyCode;
-      const startDate = moment(req.query.date, "MM/YYYY")
-        .startOf("month")
-        .utc(true);
-      const endDate = moment(req.query.date, "MM/YYYY")
-        .utc(true)
-        .endOf("month");
-      const filter = {
-        ...{ companyCode: companyCode },
-        ...(req.query.date
-          ? { date: { $gte: startDate.toDate(), $lte: endDate.toDate() } }
-          : {}),
-      };
+      const filter = this.buildStatsFilter(companyCode, req.query);
       const data: IShift[] = await shiftService.find(filter, {}, {});
       let totalForStatus = {
         paid: 0,
@@ -213,15 +283,19 @@ export class ShiftController {
         toConfirm: 0,
         cancelled: 0,
         total: 0,
+        linked: 0,
+        unlinked: 0,
       };
       for (const el of data) {
         // Excluir reservas en espera de pago: no son reservas reales todavía
-        if (el.status === "pendingPayment") continue;
+        if (!this.isCountableShift(el)) continue;
         if (el.status === "paid") totalForStatus.paid += 1;
         if (el.status === "confirmed") totalForStatus.confirmed += 1;
 
         if (el.status === "toConfirm") totalForStatus.toConfirm += 1;
         if (el.status === "cancelled") totalForStatus.cancelled += 1;
+        if (el.paymentId) totalForStatus.linked += 1;
+        else totalForStatus.unlinked += 1;
         totalForStatus.total += 1;
         totalForStatus.people += el.peopleQty ? el.peopleQty : 0;
         totalForStatus.adults += el.adultsQty ? el.adultsQty : 0;
@@ -229,6 +303,114 @@ export class ShiftController {
         totalForStatus.babies += el.babiesQty ? el.babiesQty : 0;
       }
       return res.status(200).json({ ack: 0, data: totalForStatus });
+    } catch (e) {
+      logger.error(e);
+      return res.status(400).json({ ack: 1, message: e.message });
+    }
+  };
+
+  /**
+   * Exporta a Excel los turnos del mismo rango/filtro que muestra el tablero
+   * de estadísticas. Devuelve el .xlsx como binario, no JSON.
+   */
+  static exportExcel: IRouteController<
+    {},
+    {},
+    {},
+    { date?: string; from?: string; to?: string; linked?: string }
+  > = async (req, res) => {
+    const logger = new Log(res.locals.requestId, "ShiftController.exportExcel");
+    try {
+      const companyCode = res.locals.companyCode;
+      const filter = this.buildStatsFilter(companyCode, req.query);
+      const data: IShift[] = await shiftService.find(
+        filter,
+        {},
+        { sort: { date: 1, timeStart: 1 } },
+      );
+
+      const workbook = new ExcelJS.Workbook();
+      workbook.creator = "Reservas";
+      workbook.created = new Date();
+      const sheet = workbook.addWorksheet("Turnos");
+
+      sheet.columns = [
+        { header: "N° reserva", key: "code", width: 12 },
+        { header: "Fecha", key: "date", width: 12 },
+        { header: "Desde", key: "timeStart", width: 8 },
+        { header: "Hasta", key: "timeEnd", width: 8 },
+        { header: "Cliente", key: "client", width: 26 },
+        { header: "Email", key: "email", width: 28 },
+        { header: "Teléfono", key: "phoneNumber", width: 16 },
+        { header: "Estado", key: "status", width: 14 },
+        { header: "Personas", key: "peopleQty", width: 10 },
+        { header: "Adultos", key: "adultsQty", width: 9 },
+        { header: "Niños", key: "childrenQty", width: 9 },
+        { header: "Bebés", key: "babiesQty", width: 9 },
+        { header: "Mesa", key: "tableNumber", width: 8 },
+        { header: "Unidad de negocio", key: "unitBusiness", width: 18 },
+        { header: "Importe", key: "price", width: 12 },
+        { header: "Vinculación", key: "linked", width: 14 },
+        { header: "Estado del pago", key: "paymentStatus", width: 16 },
+        { header: "ID de pago MP", key: "paymentId", width: 18 },
+        { header: "Pagado el", key: "paidAt", width: 18 },
+        { header: "Observaciones", key: "description", width: 32 },
+        { header: "ID interno", key: "id", width: 26 },
+      ];
+
+      sheet.getRow(1).font = { bold: true };
+      sheet.getRow(1).fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FFF3F4F6" },
+      };
+      sheet.views = [{ state: "frozen", ySplit: 1 }];
+      sheet.autoFilter = { from: "A1", to: "U1" };
+
+      for (const el of data) {
+        if (!this.isCountableShift(el)) continue;
+        sheet.addRow({
+          code: buildShiftCode(String(el._id)),
+          id: String(el._id),
+          // La fecha se guarda a medianoche UTC: con .utc() no se corre un día.
+          date: moment(el.date).utc().format("DD/MM/YYYY"),
+          timeStart: el.timeStart,
+          timeEnd: el.timeEnd,
+          client: el.client,
+          email: el.email,
+          phoneNumber: el.phoneNumber,
+          status: SHIFT_STATUS_LABELS[el.status] || el.status,
+          peopleQty: el.peopleQty ?? 0,
+          adultsQty: el.adultsQty ?? 0,
+          childrenQty: el.childrenQty ?? 0,
+          babiesQty: el.babiesQty ?? 0,
+          tableNumber: el.tableNumber || "",
+          unitBusiness: el.unitBusiness,
+          price: el.price ?? 0,
+          linked: el.paymentId ? "Vinculada" : "Sin vincular",
+          paymentStatus: el.paymentStatus || "",
+          paymentId: el.paymentId || "",
+          paidAt: el.paidAt ? moment(el.paidAt).format("DD/MM/YYYY HH:mm") : "",
+          description: el.description || "",
+        });
+      }
+
+      sheet.getColumn("price").numFmt = '"$"#,##0.00';
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      const stamp =
+        req.query.from && req.query.to
+          ? `${req.query.from}_${req.query.to}`
+          : moment().format("YYYY-MM-DD");
+      res.setHeader(
+        "Content-Type",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      );
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="turnos_${stamp}.xlsx"`,
+      );
+      return res.status(200).send(Buffer.from(buffer));
     } catch (e) {
       logger.error(e);
       return res.status(400).json({ ack: 1, message: e.message });
@@ -551,12 +733,30 @@ export class ShiftController {
         });
       }
 
+      const readableDate = buildTitleDate(moment(shift.date));
+      const shiftCode = buildShiftCode(String(created._id));
+      const externalReference = buildExternalReference({
+        shiftId: String(created._id),
+        shiftCode,
+        date: readableDate,
+        timeStart: shift.timeStart,
+      });
       const pref = await mercadoPagoService.createPreference({
         shiftId: String(created._id),
         companyCode,
-        title: workshop
-          ? `Taller "${workshop.title}" ${moment(shift.date).format("DD/MM/YYYY")} ${shift.timeStart}`
-          : `Reserva ${moment(shift.date).format("DD/MM/YYYY")} ${shift.timeStart}`,
+        title: buildPaymentTitle({
+          shiftCode,
+          date: readableDate,
+          timeStart: shift.timeStart,
+          workshopTitle: workshop?.title,
+        }),
+        description: buildPaymentDescription({
+          shiftCode,
+          date: readableDate,
+          timeStart: shift.timeStart,
+          client: shift.client,
+        }),
+        externalReference,
         unitPrice: totalPrice,
         quantity: 1,
         payerEmail: shift.email,
@@ -584,6 +784,7 @@ export class ShiftController {
         { _id: created._id },
         {
           preferenceId: pref.preferenceId,
+          externalReference,
           paymentLink: pref.initPoint,
           paymentStatus: "pending",
         },
@@ -650,7 +851,11 @@ export class ShiftController {
       const paymentIdParam = req.query.payment_id;
       const lastPayment = paymentIdParam
         ? await mercadoPagoService.getPayment(companyCode, paymentIdParam)
-        : await mercadoPagoService.findLastPaymentByShift(companyCode, id);
+        : await mercadoPagoService.findLastPaymentByShift(
+            companyCode,
+            id,
+            shift.externalReference,
+          );
 
       if (!lastPayment) {
         return res.status(200).json({
@@ -758,12 +963,30 @@ export class ShiftController {
         companyCode,
         dateStr,
       );
+      const readableDate = buildTitleDate(moment(shift.date).utc());
+      const shiftCode = buildShiftCode(id);
+      const externalReference = buildExternalReference({
+        shiftId: id,
+        shiftCode,
+        date: readableDate,
+        timeStart: shift.timeStart,
+      });
       const pref = await mercadoPagoService.createPreference({
         shiftId: id,
         companyCode,
-        title: workshop
-          ? `Taller "${workshop.title}" ${moment(shift.date).utc().format("DD/MM/YYYY")} ${shift.timeStart}`
-          : `Reserva ${moment(shift.date).utc().format("DD/MM/YYYY")} ${shift.timeStart}`,
+        title: buildPaymentTitle({
+          shiftCode,
+          date: readableDate,
+          timeStart: shift.timeStart,
+          workshopTitle: workshop?.title,
+        }),
+        description: buildPaymentDescription({
+          shiftCode,
+          date: readableDate,
+          timeStart: shift.timeStart,
+          client: shift.client,
+        }),
+        externalReference,
         unitPrice: shift.price,
         quantity: 1,
         payerEmail: shift.email,
@@ -782,6 +1005,7 @@ export class ShiftController {
           status: "pendingPayment",
           paymentExpiresAt: expiresAt,
           preferenceId: pref.preferenceId,
+          externalReference,
           paymentLink: pref.initPoint,
           paymentStatus: "pending",
         },
@@ -810,6 +1034,7 @@ export class ShiftController {
         const payment = await mercadoPagoService.findLastPaymentByShift(
           companyCode,
           String(shift._id),
+          shift.externalReference,
         );
         if (!payment) continue;
         const newPaymentStatus = payment.status as string;

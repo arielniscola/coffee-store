@@ -10,11 +10,18 @@ import {
   Baby,
   XCircle,
   TrendingUp,
+  Link as LinkIcon,
+  Unlink,
+  FileSpreadsheet,
   LucideProps,
 } from "lucide-react";
-import MonthYearPicker from "./yearMonthPicker";
-import { getStatistics } from "../../services/shiftService";
-import moment from "moment";
+import DateRangePicker, { DateRange, defaultRange } from "./dateRangePicker";
+import {
+  getStatistics,
+  downloadShiftsExcel,
+} from "../../services/shiftService";
+import toast from "react-hot-toast";
+import { format, parseISO } from "date-fns";
 import {
   Chart,
   DoughnutController,
@@ -35,7 +42,20 @@ interface Stats {
   adults: number;
   children: number;
   babies: number;
+  /** Turnos con un pago de Mercado Pago asociado. */
+  linked: number;
+  /** Turnos sin pago asociado (cargados a mano, sin seña, etc.). */
+  unlinked: number;
 }
+
+/** Filtro de vinculación con pagos de Mercado Pago. */
+type LinkedFilter = "all" | "linked" | "unlinked";
+
+const LINKED_FILTERS: { key: LinkedFilter; label: string }[] = [
+  { key: "all", label: "Todas" },
+  { key: "linked", label: "Vinculadas" },
+  { key: "unlinked", label: "Sin vincular" },
+];
 
 interface KpiProps {
   title: string;
@@ -66,9 +86,11 @@ const KpiCard = ({ title, value, icon: Icon, gradient, hint }: KpiProps) => (
 
 const ShiftStatistics = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [range, setRange] = useState<DateRange>(defaultRange);
+  const [linked, setLinked] = useState<LinkedFilter>("all");
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const chartRef = useRef<Chart<"doughnut"> | null>(null);
 
@@ -76,9 +98,7 @@ const ShiftStatistics = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const res = await getStatistics(
-          moment(selectedDate).format("MM/YYYY"),
-        );
+        const res = await getStatistics({ ...range, linked });
         setStats(res as Stats);
       } catch (error) {
         console.error("Error fetching statistics:", error);
@@ -87,7 +107,21 @@ const ShiftStatistics = () => {
       }
     };
     fetchData();
-  }, [selectedDate]);
+  }, [range, linked]);
+
+  // El Excel sale con el mismo rango y filtro que se está viendo en pantalla.
+  const handleExport = async () => {
+    try {
+      setExporting(true);
+      await downloadShiftsExcel({ ...range, linked });
+    } catch (e) {
+      toast.error(
+        e instanceof Error ? e.message : "No se pudo generar el Excel",
+      );
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const confirmationRate = useMemo(() => {
     if (!stats || stats.total === 0) return 0;
@@ -153,7 +187,16 @@ const ShiftStatistics = () => {
     };
   }, [stats]);
 
-  const monthLabel = moment(selectedDate).format("MMMM YYYY");
+  const rangeLabel = useMemo(() => {
+    try {
+      return `${format(parseISO(range.from), "dd/MM/yyyy")} al ${format(
+        parseISO(range.to),
+        "dd/MM/yyyy",
+      )}`;
+    } catch {
+      return `${range.from} al ${range.to}`;
+    }
+  }, [range]);
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -162,19 +205,47 @@ const ShiftStatistics = () => {
         <Header sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
         <main className="bg-gray-50 min-h-full">
           <div className="p-4 md:p-8 max-w-7xl mx-auto w-full">
-            <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-3 mb-6">
+            <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-3 mb-5">
               <div>
                 <h1 className="text-2xl md:text-3xl font-bold text-gray-800">
                   Estadísticas
                 </h1>
-                <p className="text-gray-500 text-sm capitalize">
-                  Resumen de turnos · {monthLabel}
+                <p className="text-gray-500 text-sm">
+                  Resumen de turnos · {rangeLabel}
                 </p>
               </div>
-              <MonthYearPicker
-                selectedDate={selectedDate}
-                onChange={setSelectedDate}
-              />
+              <button
+                onClick={handleExport}
+                disabled={exporting}
+                className="inline-flex items-center justify-center gap-2 bg-gradient-to-r from-pink-400 to-blue-400 text-white px-4 py-2 rounded-lg font-medium shadow-md hover:opacity-90 transition-opacity disabled:opacity-60"
+              >
+                <FileSpreadsheet className="w-4 h-4" />
+                {exporting ? "Generando..." : "Exportar a Excel"}
+              </button>
+            </div>
+
+            <div className="mb-5">
+              <DateRangePicker value={range} onChange={setRange} />
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 mb-6">
+              <span className="text-xs font-medium text-gray-500">
+                Vinculación con pagos:
+              </span>
+              {LINKED_FILTERS.map((f) => (
+                <button
+                  key={f.key}
+                  onClick={() => setLinked(f.key)}
+                  title="Una reserva está vinculada cuando tiene un pago de Mercado Pago asociado"
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all border ${
+                    linked === f.key
+                      ? "bg-pink-50 text-pink-600 border-pink-300"
+                      : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
             </div>
 
             {loading || !stats ? (
@@ -185,7 +256,12 @@ const ShiftStatistics = () => {
               <div className="text-center py-20 bg-white rounded-xl border border-gray-200">
                 <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-3" />
                 <p className="text-gray-500">
-                  No hay datos para {monthLabel}.
+                  No hay datos para el período {rangeLabel}
+                  {linked !== "all" &&
+                    ` con el filtro "${
+                      LINKED_FILTERS.find((f) => f.key === linked)?.label
+                    }"`}
+                  .
                 </p>
               </div>
             ) : (
@@ -225,7 +301,7 @@ const ShiftStatistics = () => {
                       Distribución de estados
                     </h2>
                     <p className="text-sm text-gray-500 mb-4">
-                      Reservas del mes por estado
+                      Reservas del período por estado
                     </p>
                     <div className="h-72">
                       <canvas ref={canvasRef} />
@@ -386,6 +462,29 @@ const ShiftStatistics = () => {
                       <p className="text-xs text-gray-500">Canceladas</p>
                       <p className="text-xl font-bold text-gray-800">
                         {stats.cancelled}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 mt-4">
+                  <div className="bg-white rounded-xl border border-gray-100 p-4 flex items-center gap-3">
+                    <LinkIcon className="w-5 h-5 text-green-500" />
+                    <div>
+                      <p className="text-xs text-gray-500">
+                        Vinculadas a un pago
+                      </p>
+                      <p className="text-xl font-bold text-gray-800">
+                        {stats.linked ?? 0}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="bg-white rounded-xl border border-gray-100 p-4 flex items-center gap-3">
+                    <Unlink className="w-5 h-5 text-orange-500" />
+                    <div>
+                      <p className="text-xs text-gray-500">Sin vincular</p>
+                      <p className="text-xl font-bold text-gray-800">
+                        {stats.unlinked ?? 0}
                       </p>
                     </div>
                   </div>

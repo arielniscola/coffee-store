@@ -13,6 +13,10 @@ import {
   updateShift,
 } from "../../../services/shiftService";
 import { IShift } from "../../../interfaces/shift";
+import {
+  buildShiftCode,
+  matchesShiftCode,
+} from "../../../utils/shiftCode";
 import { format } from "date-fns";
 import toast from "react-hot-toast";
 import ModalDelete from "../../../components/DeleteModal";
@@ -130,7 +134,9 @@ export function ReservationList() {
           (r) =>
             r.client?.toLowerCase().includes(q) ||
             r.email?.toLowerCase().includes(q) ||
-            r.phoneNumber?.includes(q),
+            r.phoneNumber?.includes(q) ||
+            // El código corto es lo que el cliente manda en el comprobante.
+            matchesShiftCode(r._id, q),
         );
     // Ordenar por fecha y luego por hora de inicio.
     return [...bySearch].sort((a, b) => {
@@ -238,7 +244,7 @@ export function ReservationList() {
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
         <input
           type="text"
-          placeholder="Buscar por cliente, email o teléfono..."
+          placeholder="Buscar por N° de reserva, cliente, email o teléfono..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-pink-300 focus:border-pink-300"
@@ -287,6 +293,7 @@ export function ReservationList() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wide">
+                  <th className="text-left font-semibold px-4 py-3">N°</th>
                   <th className="text-left font-semibold px-4 py-3">Fecha</th>
                   <th className="text-left font-semibold px-4 py-3">Hora</th>
                   <th className="text-left font-semibold px-4 py-3">Cliente</th>
@@ -305,6 +312,14 @@ export function ReservationList() {
                   const babies = r.babiesQty ?? 0;
                   return (
                     <tr key={r._id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <span
+                          className="font-mono text-xs text-gray-500"
+                          title="Número de reserva, el mismo que sale en el comprobante de Mercado Pago"
+                        >
+                          {buildShiftCode(r._id)}
+                        </span>
+                      </td>
                       <td className="px-4 py-3 whitespace-nowrap text-gray-700">
                         {formatShiftDate(r.date)}
                       </td>

@@ -21,6 +21,8 @@ export interface IShift {
   price?: number;
   paymentId?: string;
   preferenceId?: string;
+  /** external_reference exacto enviado a MP (ver `buildExternalReference`). */
+  externalReference?: string;
   paymentStatus?: string;
   paymentLink?: string;
   paidAt?: Date;
@@ -102,6 +104,7 @@ export const ShiftSchema = createSchema<IShift>({
   },
   paymentId: { type: String, required: false },
   preferenceId: { type: String, required: false },
+  externalReference: { type: String, required: false },
   paymentStatus: { type: String, required: false },
   paymentLink: { type: String, required: false },
   paidAt: { type: Date, required: false },

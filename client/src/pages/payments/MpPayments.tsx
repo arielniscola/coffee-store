@@ -20,6 +20,7 @@ import {
 } from "../../services/paymentsService";
 import { getShifts } from "../../services/shiftService";
 import { IShift } from "../../interfaces/shift";
+import { buildShiftCode } from "../../utils/shiftCode";
 import { format, subDays } from "date-fns";
 import toast from "react-hot-toast";
 
@@ -72,6 +73,19 @@ const STATUS_FILTERS: { key: string; label: string; statuses: string[] }[] = [
   { key: "refunded", label: "Reembolsados", statuses: ["refunded"] },
 ];
 
+/**
+ * Vinculación con una reserva. A diferencia del estado y de "solo reservas",
+ * esto se resuelve en el front: el backend ya devuelve cada pago con su
+ * reserva resuelta (`shift`), así que no hace falta otra vuelta a la API.
+ */
+type LinkFilter = "all" | "linked" | "unlinked";
+
+const LINK_FILTERS: { key: LinkFilter; label: string }[] = [
+  { key: "all", label: "Todos" },
+  { key: "linked", label: "Vinculados" },
+  { key: "unlinked", label: "Sin vincular" },
+];
+
 const EMPTY_SUMMARY: IMpPaymentsSummary = {
   total: 0,
   byStatus: {},
@@ -86,6 +100,7 @@ const MpPayments = () => {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [onlyReservations, setOnlyReservations] = useState(false);
+  const [linkFilter, setLinkFilter] = useState<LinkFilter>("all");
   const [from, setFrom] = useState(
     format(subDays(new Date(), 30), "yyyy-MM-dd"),
   );
@@ -121,19 +136,22 @@ const MpPayments = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [from, to, statusFilter, onlyReservations]);
 
-  // El estado y "solo reservas" los resuelve la API; acá queda solo la
-  // búsqueda de texto, que aplica sobre lo que ya está en pantalla.
+  // El estado y "solo reservas" los resuelve la API; acá quedan la búsqueda
+  // de texto y la vinculación, que aplican sobre lo que ya está en pantalla.
   const filtered = useMemo(() => {
-    if (!search.trim()) return payments;
-    const q = search.toLowerCase();
-    return payments.filter(
-      (p) =>
+    const q = search.trim().toLowerCase();
+    return payments.filter((p) => {
+      if (linkFilter === "linked" && !p.shift) return false;
+      if (linkFilter === "unlinked" && p.shift) return false;
+      if (!q) return true;
+      return !!(
         p.id?.toString().includes(q) ||
         p.payerEmail?.toLowerCase().includes(q) ||
         p.shift?.client?.toLowerCase().includes(q) ||
-        p.externalReference?.toLowerCase().includes(q),
-    );
-  }, [payments, search]);
+        p.externalReference?.toLowerCase().includes(q)
+      );
+    });
+  }, [payments, search, linkFilter]);
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -257,6 +275,23 @@ const MpPayments = () => {
                 >
                   {onlyReservations ? "Solo reservas" : "Toda la cuenta"}
                 </button>
+
+                <span className="hidden sm:block h-6 w-px bg-gray-200 mx-1" />
+
+                {LINK_FILTERS.map((f) => (
+                  <button
+                    key={f.key}
+                    onClick={() => setLinkFilter(f.key)}
+                    title="Filtra por pagos que ya tienen una reserva asociada"
+                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all border ${
+                      linkFilter === f.key
+                        ? "bg-blue-50 text-blue-600 border-blue-300"
+                        : "bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100"
+                    }`}
+                  >
+                    {f.label}
+                  </button>
+                ))}
               </div>
             </div>
 
@@ -273,7 +308,8 @@ const MpPayments = () => {
                 <p className="text-xs text-gray-400 mt-2">
                   Probá ampliar el rango de fechas
                   {statusFilter !== "all" && " o sacar el filtro de estado"}
-                  {onlyReservations && ' o pasar a "Toda la cuenta"'}.
+                  {onlyReservations && ' o pasar a "Toda la cuenta"'}
+                  {linkFilter !== "all" && " o sacar el filtro de vinculación"}.
                 </p>
                 <p className="text-xs text-gray-400 mt-1">
                   Si no aparece nada en ningún rango, revisá el access token de
@@ -354,8 +390,8 @@ const MpPayments = () => {
                               {p.shift ? (
                                 <div className="flex items-center gap-1 text-green-600">
                                   <CheckCircle2 className="w-4 h-4" />
-                                  <span className="text-xs">
-                                    Vinculada
+                                  <span className="text-xs font-mono">
+                                    {buildShiftCode(p.shift._id)}
                                   </span>
                                 </div>
                               ) : (

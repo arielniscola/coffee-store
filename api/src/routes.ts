@@ -129,6 +129,13 @@ const routes = defineRoutes([
         auth: true,
       },
       {
+        path: "/shifts/export",
+        label: "Turnos",
+        method: "get",
+        controller: ShiftController.exportExcel,
+        auth: true,
+      },
+      {
         path: "/shifts/availables",
         label: "Turnos",
         method: "get",

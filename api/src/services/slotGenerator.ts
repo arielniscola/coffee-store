@@ -5,6 +5,7 @@ import scheduleExceptionService, { timeToMinutes } from "./scheduleException";
 import { shiftService } from "./shift";
 import slotService from "./slot";
 import workshopService from "./workshop";
+import { weeklyScheduleService } from "./weeklySchedule";
 
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 
@@ -75,6 +76,17 @@ export interface GenerateResult {
   preview: PreviewItem[];
 }
 
+/** Nombre de día en inglés capitalizado, que es lo que espera weeklySchedule. */
+const WEEKDAY_NAMES = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+];
+
 /** Devuelve true si [aStart,aEnd) y [bStart,bEnd) se solapan. */
 const overlaps = (
   aStart: number,
@@ -144,6 +156,15 @@ export class SlotGeneratorService {
       );
     }
 
+    // Franjas marcadas "sin seña" en el horario semanal, por día de semana.
+    // Es la regla del negocio para ese rango horario y le gana al default del
+    // formulario: sin esto, publicar disponibilidad sobre una franja libre la
+    // dejaba igual con seña y el checkout mandaba al cliente a Mercado Pago.
+    const freeRangesByWeekday = await this.getFreeRanges(
+      companyCode,
+      weekdays,
+    );
+
     const preview: PreviewItem[] = [];
     const toCreate: Partial<ISlot>[] = [];
     let days = 0;
@@ -167,6 +188,10 @@ export class SlotGeneratorService {
       const dayExisting = existingByDate.get(dateStr) || [];
 
       for (const block of blocks) {
+        const freeInSchedule = this.isFreeInRanges(
+          freeRangesByWeekday.get(weekday) || [],
+          block,
+        );
         const item = this.buildPreviewItem({
           dateStr,
           weekday,
@@ -175,6 +200,7 @@ export class SlotGeneratorService {
           defaultCapacity,
           closed,
           dayExisting,
+          freeInSchedule,
         });
         preview.push(item);
         if (item.status !== "new") continue;
@@ -192,8 +218,12 @@ export class SlotGeneratorService {
           kind: "reservation",
           source: "generated",
           workshopId: null,
-          requiresDeposit: block.requiresDeposit,
-          depositAmount: block.depositAmount || 0,
+          // El horario semanal manda sobre el formulario: si la franja está
+          // marcada sin seña, se guarda sin seña. Lo del taller NO se copia
+          // acá a propósito (ver el comentario de `workshopId` arriba): se
+          // resuelve al leer la disponibilidad.
+          requiresDeposit: freeInSchedule ? false : block.requiresDeposit,
+          depositAmount: freeInSchedule ? 0 : block.depositAmount || 0,
           capacityAdults: block.capacityAdults ?? defaultCapacity.adults,
           capacityChildren: block.capacityChildren ?? defaultCapacity.children,
           status: "open",
@@ -225,6 +255,58 @@ export class SlotGeneratorService {
     };
   }
 
+  /**
+   * Rangos "sin seña" del horario semanal, indexados por día de semana
+   * (0 = domingo). Se leen una sola vez por corrida: la previsualización se
+   * recalcula mientras el usuario configura y esto son 7 consultas como mucho.
+   *
+   * Si la compañía todavía no tiene horario estructurado guardado, el servicio
+   * cae a los configs viejos, que no soportan `free`: en ese caso no hay
+   * franjas libres y el generador se comporta como antes.
+   */
+  private async getFreeRanges(
+    companyCode: string,
+    weekdays: number[],
+  ): Promise<Map<number, { start: number; end: number }[]>> {
+    const result = new Map<number, { start: number; end: number }[]>();
+    for (const weekday of new Set(weekdays)) {
+      const name = WEEKDAY_NAMES[weekday];
+      if (!name) continue;
+      try {
+        const ranges = await weeklyScheduleService.getRangesForDay(
+          companyCode,
+          name,
+        );
+        result.set(
+          weekday,
+          ranges
+            .filter((r) => r.free)
+            .map((r) => ({ start: r.start, end: r.end })),
+        );
+      } catch (e) {
+        // Sin horario semanal legible no se fuerza nada: manda el formulario.
+        result.set(weekday, []);
+      }
+    }
+    return result;
+  }
+
+  /**
+   * ¿El bloque queda dentro de una franja sin seña? Se pide que entre entero:
+   * un bloque que arranca en la franja libre y sigue fuera de ella se cobra,
+   * que es el criterio conservador (nunca deja de cobrar por las dudas).
+   */
+  private isFreeInRanges(
+    ranges: { start: number; end: number }[],
+    block: GenerateBlock,
+  ): boolean {
+    if (!ranges.length) return false;
+    const start = timeToMinutes(block.timeStart);
+    const end = timeToMinutes(block.timeEnd);
+    if (Number.isNaN(start) || Number.isNaN(end)) return false;
+    return ranges.some((r) => start >= r.start && end <= r.end);
+  }
+
   /** Decide qué pasa con una franja en un día concreto. */
   private buildPreviewItem(ctx: {
     dateStr: string;
@@ -234,8 +316,18 @@ export class SlotGeneratorService {
     defaultCapacity: { adults: number; children: number };
     closed: boolean;
     dayExisting: ISlot[];
+    /** La franja cae dentro de un rango "sin seña" del horario semanal. */
+    freeInSchedule: boolean;
   }): PreviewItem {
-    const { dateStr, weekday, block, workshop, defaultCapacity, closed } = ctx;
+    const {
+      dateStr,
+      weekday,
+      block,
+      workshop,
+      defaultCapacity,
+      closed,
+      freeInSchedule,
+    } = ctx;
     const start = timeToMinutes(block.timeStart);
     const finish = timeToMinutes(block.timeEnd);
 
@@ -245,13 +337,19 @@ export class SlotGeneratorService {
       timeStart: block.timeStart,
       timeEnd: block.timeEnd,
       status: "new",
-      // Un taller siempre cobra lo suyo; fuera de eso manda lo elegido.
+      // Precedencia de la seña: un taller siempre cobra lo suyo; después manda
+      // el horario semanal, donde se marcan las franjas sin seña; y recién
+      // ahí lo elegido en el formulario.
       requiresDeposit: workshop
         ? workshop.requiresDeposit !== false
-        : block.requiresDeposit,
+        : freeInSchedule
+          ? false
+          : block.requiresDeposit,
       depositAmount: workshop
         ? workshop.depositAmount || workshop.priceChild || 0
-        : block.depositAmount || 0,
+        : freeInSchedule
+          ? 0
+          : block.depositAmount || 0,
       capacityAdults:
         block.capacityAdults ?? workshop?.capacityAdults ?? defaultCapacity.adults,
       capacityChildren:

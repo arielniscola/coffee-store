@@ -90,6 +90,31 @@ export const getSlotSummary = async (
 };
 
 /** Abre o cierra una disponibilidad sin tocar sus reservas. */
+/**
+ * Edita una disponibilidad ya publicada. Se usa para el toggle "con seña /
+ * sin seña": al generar, cada franja guarda su propio `requiresDeposit` y ese
+ * valor le gana al flag `free` del horario semanal, así que sin esto la única
+ * forma de sacarle la seña a una franja publicada era borrarla y regenerarla.
+ */
+export const updateSlot = async (
+  id: string,
+  changes: {
+    requiresDeposit?: boolean;
+    depositAmount?: number;
+    timeEnd?: string;
+    capacityAdults?: number;
+    capacityChildren?: number;
+  },
+): Promise<ResponseApi<ISlot>> => {
+  const res = await fetch(`${URL_API}/slots/${id}`, {
+    method: "PUT",
+    headers: authHeaders(),
+    body: JSON.stringify(changes),
+  });
+  if (res.status === 401) unauthorized();
+  return res.json();
+};
+
 export const setSlotStatus = async (
   id: string,
   status: "open" | "closed",

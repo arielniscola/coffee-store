@@ -73,6 +73,7 @@ async function reconcileOnce(
           const payment = await mercadoPagoService.findLastPaymentByShift(
             companyCode,
             String(shift._id),
+            shift.externalReference,
           );
           if (!payment) continue;
           const newPaymentStatus = payment.status as string;
