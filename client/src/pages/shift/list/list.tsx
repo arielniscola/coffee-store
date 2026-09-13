@@ -20,6 +20,8 @@ import {
 import { format } from "date-fns";
 import toast from "react-hot-toast";
 import ModalDelete from "../../../components/DeleteModal";
+import NameFilterInput from "../../../components/NameFilterInput";
+import { matchesName } from "../../../utils/text";
 
 const notify = (msg: string) => toast.success(msg);
 const notifyError = (msg: string) => toast.error(msg);
@@ -84,7 +86,15 @@ const FILTERS: { key: StatusFilter; label: string }[] = [
   { key: "completed", label: "Completadas" },
 ];
 
-export function ReservationList() {
+interface ReservationListProps {
+  nameFilter: string;
+  onNameFilterChange: (value: string) => void;
+}
+
+export function ReservationList({
+  nameFilter,
+  onNameFilterChange,
+}: ReservationListProps) {
   const [reservations, setReservations] = useState<IShift[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -116,17 +126,21 @@ export function ReservationList() {
     }
   }
 
+  const byName = useMemo(
+    () => reservations.filter((r) => matchesName(r.client, nameFilter)),
+    [reservations, nameFilter],
+  );
+
+  // Los contadores de estado respetan el filtro por nombre.
   const counts = useMemo(() => {
-    const acc: Record<string, number> = { all: reservations.length };
-    for (const r of reservations) acc[r.status] = (acc[r.status] || 0) + 1;
+    const acc: Record<string, number> = { all: byName.length };
+    for (const r of byName) acc[r.status] = (acc[r.status] || 0) + 1;
     return acc;
-  }, [reservations]);
+  }, [byName]);
 
   const filtered = useMemo(() => {
     const byStatus =
-      filter === "all"
-        ? reservations
-        : reservations.filter((r) => r.status === filter);
+      filter === "all" ? byName : byName.filter((r) => r.status === filter);
     const q = search.trim().toLowerCase();
     const bySearch = !q
       ? byStatus
@@ -144,7 +158,7 @@ export function ReservationList() {
       if (da !== 0) return da;
       return (a.timeStart || "").localeCompare(b.timeStart || "");
     });
-  }, [reservations, filter, search]);
+  }, [byName, filter, search]);
 
   const deleteReservation = async () => {
     try {
@@ -240,7 +254,13 @@ export function ReservationList() {
         </div>
       </div>
 
-      <div className="relative">
+      <div className="flex flex-col md:flex-row gap-3">
+      <NameFilterInput
+        value={nameFilter}
+        onChange={onNameFilterChange}
+        className="md:w-64"
+      />
+      <div className="relative flex-1">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
         <input
           type="text"
@@ -249,6 +269,7 @@ export function ReservationList() {
           onChange={(e) => setSearch(e.target.value)}
           className="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-pink-300 focus:border-pink-300"
         />
+      </div>
       </div>
 
       <div className="flex gap-2 flex-wrap">

@@ -14,6 +14,7 @@ import { ITable } from "../../../interfaces/tables";
 import { getAvailableShifts } from "../../../services/shiftService";
 import ScheduleExceptionsModal from "./ScheduleExceptionsModal";
 import { format } from "date-fns";
+import { matchesName } from "../../../utils/text";
 
 interface CalendarProps {
   shifts: IShift[];
@@ -26,6 +27,7 @@ interface CalendarProps {
   unitBusiness: IUnitBusiness[];
   deleteShift: (id: string) => void;
   tables: ITable[];
+  nameFilter?: string;
 }
 
 const STATUS_META: Record<
@@ -71,6 +73,7 @@ export default function Calendar({
   deleteShift,
   selectedDate,
   tables,
+  nameFilter = "",
 }: CalendarProps) {
   const [timeSlots, setTimeSlots] = useState<string[]>([]);
   const [showExceptionsModal, setShowExceptionsModal] = useState(false);
@@ -101,6 +104,21 @@ export default function Calendar({
     }
     return schedule;
   }, [shifts, timeSlots]);
+
+  // El filtro por nombre solo afecta qué tarjetas se muestran; la ocupación y
+  // los totales del día se siguen calculando con todas las reservas.
+  const isFiltering = nameFilter.trim() !== "";
+  const visibleSchedule = useMemo(() => {
+    const withVisible = reservesSchedule.map((slot) => ({
+      ...slot,
+      visibleShifts: isFiltering
+        ? slot.shifts.filter((s) => matchesName(s.client, nameFilter))
+        : slot.shifts,
+    }));
+    return isFiltering
+      ? withVisible.filter((slot) => slot.visibleShifts.length > 0)
+      : withVisible;
+  }, [reservesSchedule, nameFilter, isFiltering]);
 
   const dayTotals = useMemo(() => {
     const active = shifts.filter((s) => s.status !== "cancelled");
@@ -217,11 +235,16 @@ export default function Calendar({
               Configurá los horarios en Empresa → Configuración.
             </p>
           </div>
+        ) : isFiltering && visibleSchedule.length === 0 ? (
+          <div className="text-center py-16 text-gray-500">
+            <Users className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+            <p>No hay reservas que coincidan con “{nameFilter.trim()}”.</p>
+          </div>
         ) : (
           <div className="divide-y divide-gray-100">
-            {reservesSchedule.map((slot) => {
+            {visibleSchedule.map((slot) => {
               const ocupacion = calcOcupacion(slot.shifts);
-              const isEmpty = slot.shifts.length === 0;
+              const isEmpty = slot.visibleShifts.length === 0;
               return (
                 <div
                   key={slot.time}
@@ -255,7 +278,7 @@ export default function Calendar({
                       </button>
                     ) : (
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                        {slot.shifts.map((reserva) => {
+                        {slot.visibleShifts.map((reserva) => {
                           const meta =
                             STATUS_META[reserva.status] ||
                             STATUS_META.completed;

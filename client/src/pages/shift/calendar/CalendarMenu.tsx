@@ -22,10 +22,16 @@ import { getUnitBusiness } from "../../../services/unitBusinessService";
 import ModalDelete from "../../../components/DeleteModal";
 import { getPTables } from "../../../services/tables";
 import { ITable } from "../../../interfaces/tables";
+import NameFilterInput from "../../../components/NameFilterInput";
 const notify = (msg: string) => toast.success(msg);
 const notifyError = (msg: string) => toast.error(msg);
 
-function CalendarMenu() {
+interface CalendarMenuProps {
+  nameFilter: string;
+  onNameFilterChange: (value: string) => void;
+}
+
+function CalendarMenu({ nameFilter, onNameFilterChange }: CalendarMenuProps) {
   const [shifts, setShifts] = useState<IShift[]>([]);
   const [tables, setTables] = useState<ITable[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -164,6 +170,12 @@ function CalendarMenu() {
                 })}
               </span>
             </div>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+            <NameFilterInput
+              value={nameFilter}
+              onChange={onNameFilterChange}
+              className="sm:w-64"
+            />
             <div className="flex items-center gap-2 bg-white rounded-lg shadow-sm border border-gray-200 px-2 py-1">
               <button
                 onClick={handlePreviousDay}
@@ -198,6 +210,7 @@ function CalendarMenu() {
                 Hoy
               </button>
             </div>
+            </div>
           </div>
 
           <Calendar
@@ -211,6 +224,7 @@ function CalendarMenu() {
             unitBusiness={unitBusiness}
             deleteShift={deleteOpen}
             tables={tables}
+            nameFilter={nameFilter}
           />
 
           <ShiftModal

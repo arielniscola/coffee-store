@@ -8,6 +8,8 @@ import { ReservationList } from "./list/list";
 export const ShiftView = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [viewMode, setViewMode] = useState<"calendar" | "list">("calendar");
+  // Vive acá para que el filtro se mantenga al cambiar entre calendario y lista.
+  const [nameFilter, setNameFilter] = useState("");
   return (
     <div className="flex h-screen overflow-hidden">
       {/* Sidebar */}
@@ -48,7 +50,11 @@ export const ShiftView = () => {
               </div>
             </div>
           </div>
-          {viewMode === "calendar" ? <CalendarMenu /> : <ReservationList />}
+          {viewMode === "calendar" ? (
+            <CalendarMenu nameFilter={nameFilter} onNameFilterChange={setNameFilter} />
+          ) : (
+            <ReservationList nameFilter={nameFilter} onNameFilterChange={setNameFilter} />
+          )}
         </main>
       </div>
     </div>
